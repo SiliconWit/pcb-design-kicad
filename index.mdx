@@ -1,0 +1,142 @@
+---
+title: "PCB Design with KiCad"
+description: "Design and manufacture real PCBs from scratch using KiCad 9. Nine lessons, nine complete boards, from a through-hole ATmega328P breakout to an ESP32 IoT node, RP2040 USB-C board, and motor driver integration project"
+pubDate: 2026-03-05
+tags: ["kicad", "pcb-design", "electronics", "embedded-systems", "atmega328p", "stm32", "esp32", "rp2040", "manufacturing"]
+excerpt: "Design and manufacture complete PCBs using KiCad 9. Each lesson produces a real, useful board for embedded systems: ATmega328P breakout, STM32 USB boards, ESP32 WiFi/IoT nodes, RP2040, and a motor driver integration project. Covers home etching, CNC milling, and professional fab house workflows."
+heroImage: "https://cdn.siliconwit.com/education/pcb-design-kicad/pcb-design-kicad.png"
+---
+
+import Copyright from '../../../../components/Copyright.astro';
+import TawkWidget from '../../../../components/TawkWidget.astro';
+import { Card, CardGrid, Badge, Steps } from '@astrojs/starlight/components';
+
+Design and manufacture real, useful printed circuit boards from scratch using KiCad 9. Each lesson produces one complete board for embedded systems, starting from a simple through-hole ATmega328P breakout and progressing to multi-layer STM32 and ESP32 boards with USB-C, WiFi, battery management, and motor control. Every board includes minimal firmware to verify it works. #KiCad #PCBDesign #EmbeddedSystems
+
+## Why KiCad?
+
+<CardGrid>
+  <Card title="Free and Open Source" icon="open-book">
+    KiCad is completely free with no feature limits, board size restrictions, or layer caps. Your designs are yours, stored in open formats, with no vendor lock-in.
+  </Card>
+
+  <Card title="Industry Capable" icon="approve-check">
+    Interactive router with differential pair support, 3D board viewer, design rule checking, and direct export to every major fab house format. Used by CERN, Arduino, and thousands of professional projects.
+  </Card>
+
+  <Card title="Huge Component Library" icon="setting">
+    Ships with thousands of symbols and footprints covering common ICs, connectors, and passives. Community libraries add tens of thousands more. Custom parts are straightforward to create.
+  </Card>
+
+  <Card title="Active Development" icon="rocket">
+    KiCad 9 brings an improved router, better DRC, enhanced 3D viewer, and smoother workflows. Regular releases backed by a growing developer community and corporate sponsors.
+  </Card>
+</CardGrid>
+
+## Course Structure
+
+Each lesson follows a consistent cycle:
+
+<Steps>
+1. **The Board**
+   What we are building, why it is useful, and the design choices behind it.
+
+2. **Schematic Capture**
+   Component selection, wiring, power distribution, ERC. Full walkthrough in KiCad 9.
+
+3. **PCB Layout**
+   Component placement strategy, routing, copper pours, design rules, DRC.
+
+4. **Manufacturing Output**
+   Gerbers, drill files, BOM, and the manufacturing method for that lesson (etching, CNC milling, or fab house).
+
+5. **Build and Test**
+   Soldering guidance, first power-on checklist, and minimal firmware to confirm the board works.
+</Steps>
+
+## Lessons
+
+<CardGrid>
+  <Card title="Lesson 1: ATmega328P Breakout Board" icon="star">
+    [ATmega328P Through-Hole Breakout](./atmega328p-breakout-board-through-hole). Build a minimal Arduino-compatible board with ISP header, power LED, and pin headers. Learn KiCad 9 from scratch: project setup, schematic capture, PCB layout, and home etching. First firmware: blink an LED via ISP.
+  </Card>
+
+  <Card title="Lesson 2: ATmega328P Sensor Shield" icon="document">
+    [ATmega328P Sensor Shield with SMD](./atmega328p-sensor-shield-smd-components). Upgrade to SMD with an ATmega328P TQFP-32 board carrying I2C temperature/humidity and SPI light sensors. Introduction to SMD footprints, double-sided layout, and CNC milling for PCB fabrication.
+  </Card>
+
+  <Card title="Lesson 3: STM32 USB Development Board" icon="document">
+    [STM32 USB Development Board](./stm32-usb-development-board). Design a Blue Pill style board with STM32F103, USB, crystal oscillator, SWD debug header, and 3.3V regulation. First professional fab house order: generate Gerbers, BOM, and pick-and-place files for JLCPCB.
+  </Card>
+
+  <Card title="Lesson 4: STM32 USB-C Four-Layer Board" icon="document">
+    [STM32 USB-C Four-Layer PCB](./stm32-usb-c-four-layer-pcb). Step up to a Black Pill style STM32F411 board with USB-C, LDO power regulation, and a 4-layer stackup. Learn power/ground plane design, via stitching, and impedance-aware routing.
+  </Card>
+
+  <Card title="Lesson 5: ESP32 WiFi/Bluetooth DevKit" icon="document">
+    [ESP32 WiFi Bluetooth DevKit](./esp32-wifi-bluetooth-devkit). Integrate an ESP32-WROOM module with USB-UART bridge, antenna keepout zone, auto-reset circuit, and impedance-matched RF trace. Layout considerations for wireless performance.
+  </Card>
+
+  <Card title="Lesson 6: ESP32 Battery IoT Sensor Node" icon="document">
+    [ESP32 Battery IoT Sensor Node](./esp32-battery-iot-sensor-node). Design a battery-powered ESP32-C3 board with TP4056 charge IC, solar input, BME280 environmental sensor, and deep sleep circuitry. Power-aware layout for long battery life.
+  </Card>
+
+  <Card title="Lesson 7: RP2040 USB-C Development Board" icon="document">
+    [RP2040 USB-C Development Board](./rp2040-usb-c-development-board). Build a board around the RP2040 with external flash, native USB-C, PIO headers, and RGB LED. QFN soldering considerations, high-speed routing, and 4-layer design.
+  </Card>
+
+  <Card title="Lesson 8: Motor Driver & Sensor Integration" icon="document">
+    [Motor Driver Sensor Integration Board](./motor-driver-sensor-integration-board). Combine a DRV8833 H-bridge motor driver, MPU6050 IMU, current sensing, and screw terminals on one board. Mixed power and signal routing, thermal management, and protection circuits.
+  </Card>
+
+  <Card title="Lesson 9: Code-Based PCB Design" icon="document">
+    [Code-Based PCB Design with KiCad Scripting](./code-based-pcb-design-kicad-scripting). Recreate Lesson 1's board using Python and KiCad's scripting API. Introduction to SKiDL for programmatic netlists, parametric footprints, and automated DRC. A bridge to the future of code-driven electronics design.
+  </Card>
+</CardGrid>
+
+## Skill Progression
+
+| Skill | Lessons 1-2 | Lessons 3-4 | Lessons 5-6 | Lessons 7-8 | Lesson 9 |
+|-------|------------|------------|------------|------------|----------|
+| **Components** | Through-hole, basic SMD | Fine-pitch SMD, USB | RF modules, battery ICs | QFN, motor drivers | Programmatic |
+| **Layers** | 1-2 layer | 2-4 layer | 2 layer (RF-aware) | 4 layer | Any |
+| **Routing** | Manual, wide traces | Differential pairs intro | Impedance matching | High-speed, power | Automated |
+| **Manufacturing** | Home etching, CNC mill | Fab house (JLCPCB) | Fab house | Fab house | Scripted output |
+| **Firmware** | AVR ISP blink | USB CDC serial | WiFi scan, deep sleep | USB-C, PID control | None |
+
+## Prerequisites
+
+<Badge text="No prior KiCad experience needed" variant="tip" />
+
+**You should be comfortable with:**
+- Basic electronics (voltage, current, resistance, Ohm's law)
+- Reading a simple schematic (component symbols, connections)
+- Using a computer confidently (file management, installing software)
+
+**Helpful but not required:**
+- Soldering experience (through-hole or SMD)
+- Arduino or embedded programming basics
+- Our [Code-Based Mechanical Design](/education/code-based-mechanical-design/) course (for enclosure design)
+
+## Getting Started
+
+<Steps>
+1. **Install KiCad 9** from [kicad.org](https://www.kicad.org/download/)
+   KiCad runs on Linux, macOS, and Windows. The installer includes all libraries.
+
+2. **Start with Lesson 1**, which walks through KiCad 9 setup and produces your first complete PCB.
+
+3. **Work through lessons sequentially.** Each builds on skills and patterns from earlier lessons.
+
+4. **Build the boards.** The course is designed around manufacturing. Etching Lesson 1 at home or ordering Lesson 3 from JLCPCB is part of the learning.
+
+5. **Flash the firmware.** Each lesson includes minimal code to verify your board works.
+</Steps>
+
+:::tip[Have a soldering iron?]
+Lessons 1 and 2 produce boards you can etch or mill at home and solder yourself. From Lesson 3 onward, you can order professionally manufactured boards from JLCPCB or PCBWay for a few dollars, often with free shipping on your first order.
+:::
+
+<Copyright />
+
+<TawkWidget />

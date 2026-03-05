@@ -1,0 +1,544 @@
+---
+title: "ATmega328P Breakout Board: Through-Hole PCB from Scratch"
+description: "Design your first PCB in KiCad 9: a minimal ATmega328P breakout board with ISP header, crystal oscillator, power LED, and pin headers. Covers project setup, schematic capture, PCB layout, home etching, and blink firmware"
+contributors: "sam-macharia"
+pubDate: 2026-03-05
+tags: ["kicad", "pcb-design", "atmega328p", "through-hole", "home-etching", "avr", "embedded-systems", "breakout-board"]
+excerpt: "Build a complete ATmega328P breakout board from scratch in KiCad 9. Walk through every step from creating a new project to exporting manufacturing files for home etching. Flash a blink LED firmware over ISP to verify the board works."
+heroImage: "https://cdn.siliconwit.com/education/pcb-design-kicad/pcb-design-kicad.png"
+---
+
+import TawkWidget from '../../../../components/TawkWidget.astro';
+import UniversalContentContributors from '../../../../components/UniversalContentContributors.astro';
+import InArticleAd from '../../../../components/InArticleAd.astro';
+import Copyright from '../../../../components/Copyright.astro';
+import BionicText from '../../../../components/BionicText.astro';
+import TailwindWrapper from '../../../../components/TailwindWrapper.jsx';
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Card, CardGrid, Badge, Steps, LinkButton } from '@astrojs/starlight/components';
+
+<UniversalContentContributors 
+  contributors={frontmatter.contributors}
+/>
+
+
+
+import PcbDesignKicadComments from '../../../../components/pcb-design-kicad/PcbDesignKicadComments.astro';
+
+In this first lesson, you will design a complete ATmega328P breakout board in KiCad 9 and produce files ready for home etching. The board is small (50x40mm), uses only through-hole components, and runs the same chip as an Arduino Uno. By the end you will have a working PCB with a blinking LED, built from scratch without any Arduino board or bootloader. #KiCad #ATmega328P #PCBDesign
+
+## What We Are Building
+
+<Card title="ATmega328P Breakout Board" icon="star">
+A minimal but complete microcontroller board: ATmega328P in DIP-28 package, 16 MHz crystal, ISP programming header, 5V power input with voltage regulator, power LED, user LED, reset button, decoupling capacitors, and pin headers exposing all I/O. Everything a standalone AVR project needs.
+</Card>
+
+**Board specifications:**
+
+| Parameter | Value |
+|-----------|-------|
+| MCU | ATmega328P-PU (DIP-28) |
+| Clock | 16 MHz crystal + 22 pF load capacitors |
+| Power | 7-12V input via barrel jack, 5V LDO (AMS1117-5.0) |
+| Programming | 6-pin ISP header (for USBasp or Arduino-as-ISP) |
+| I/O | 2x 14-pin headers exposing all digital/analog pins |
+| LEDs | Power (green), User (red, on PB5/D13) |
+| Size | 50 x 40 mm, single-sided friendly |
+| Components | All through-hole |
+
+### Bill of Materials
+
+| Ref | Component | Package | Quantity | Notes |
+|-----|-----------|---------|----------|-------|
+| U1 | ATmega328P-PU | DIP-28 | 1 | Use a socket for easy removal |
+| U2 | AMS1117-5.0 | SOT-223 (or TO-220) | 1 | 5V LDO regulator |
+| Y1 | 16 MHz crystal | HC-49S | 1 | |
+| C1, C2 | 22 pF ceramic | Through-hole | 2 | Crystal load capacitors |
+| C3, C4 | 100 nF ceramic | Through-hole | 2 | Decoupling |
+| C5 | 10 µF electrolytic | Through-hole | 1 | Regulator input |
+| C6 | 10 µF electrolytic | Through-hole | 1 | Regulator output |
+| R1 | 10 kΩ | Through-hole | 1 | Reset pull-up |
+| R2 | 330 Ω | Through-hole | 1 | Power LED |
+| R3 | 330 Ω | Through-hole | 1 | User LED |
+| D1 | Green LED 3mm | Through-hole | 1 | Power indicator |
+| D2 | Red LED 3mm | Through-hole | 1 | User LED (PB5) |
+| SW1 | Tactile switch 6mm | Through-hole | 1 | Reset |
+| J1 | DC barrel jack | Through-hole | 1 | Power input |
+| J2 | 2x3 pin header | 2.54mm | 1 | ISP programming |
+| J3, J4 | 1x14 pin header | 2.54mm | 2 | I/O breakout |
+
+## Installing KiCad 9
+
+<InArticleAd />
+
+
+<Tabs>
+<TabItem label="Linux">
+```bash
+# Ubuntu/Debian
+sudo add-apt-repository ppa:kicad/kicad-9.0-releases
+sudo apt update
+sudo apt install kicad
+
+# Fedora
+sudo dnf install kicad
+
+# Arch
+sudo pacman -S kicad kicad-library
+```
+</TabItem>
+<TabItem label="macOS">
+Download the `.dmg` installer from [kicad.org/download](https://www.kicad.org/download/macos/).
+
+Drag KiCad to your Applications folder. The installer includes all standard libraries.
+</TabItem>
+<TabItem label="Windows">
+Download the installer from [kicad.org/download](https://www.kicad.org/download/windows/).
+
+Run the installer and keep all default options. The standard library will be installed automatically.
+</TabItem>
+</Tabs>
+
+Verify the installation by opening KiCad. You should see the project manager with options for Schematic Editor, PCB Editor, and other tools.
+
+## Project Setup
+
+<InArticleAd />
+
+
+<Steps>
+1. Open KiCad 9 and click **File > New Project**.
+
+2. Name the project `atmega328p-breakout` and choose a location. KiCad creates a `.kicad_pro` project file, a `.kicad_sch` schematic file, and a `.kicad_pcb` board file.
+
+3. Open the **Schematic Editor** by double-clicking the `.kicad_sch` file in the project tree.
+</Steps>
+
+## Schematic Capture
+
+<InArticleAd />
+
+
+The schematic defines what components are on the board and how they connect. We will build it section by section.
+
+### Power Supply
+
+The power section takes 7-12V from the barrel jack, regulates it to 5V, and provides decoupled power rails.
+
+<Steps>
+1. **Place the barrel jack.** Press `A` (Add Symbol), search for `Barrel_Jack_Switch`, and place it on the left side of the sheet. The barrel jack has three pins: Tip (positive), Sleeve (ground), and Switch (we leave this unconnected).
+
+2. **Place the voltage regulator.** Add `AMS1117-5.0` (search for `AMS1117` in the symbol library). If your library has the generic `LM1117-5.0`, that works too. Place it to the right of the barrel jack.
+
+3. **Place capacitors.** Add two `C_Polarized` symbols for C5 (10 µF, regulator input) and C6 (10 µF, regulator output). Place C5 between the barrel jack and regulator input, C6 between the regulator output and the MCU power pins.
+
+4. **Add power symbols.** Press `P` (Add Power Port) and place `+5V` and `GND` symbols. Connect `+5V` to the regulator output and `GND` to the ground rail.
+
+5. **Wire everything.** Press `W` to draw wires. Connect:
+   - Barrel jack Tip to C5 positive to regulator VIN
+   - Regulator VOUT to C6 positive to `+5V`
+   - Barrel jack Sleeve, C5 negative, regulator GND, C6 negative all to `GND`
+</Steps>
+
+### MCU and Crystal
+
+<Steps>
+1. **Place the ATmega328P.** Add `ATmega328P-PU`. This is the DIP-28 package variant. Place it in the center of the sheet.
+
+2. **Connect power pins.** Wire `VCC` (pin 7) and `AVCC` (pin 20) to `+5V`. Wire `GND` (pins 8 and 22) to `GND`.
+
+3. **Place decoupling capacitors.** Add two `C` symbols (100 nF each). Place C3 near VCC and C4 near AVCC. Connect each between the power pin and `GND`. These are critical for stable MCU operation.
+
+4. **Place the crystal.** Add `Crystal` and place it near XTAL1 (pin 9) and XTAL2 (pin 10). Connect the crystal pins to XTAL1 and XTAL2.
+
+5. **Place crystal load capacitors.** Add two `C` symbols (22 pF each, C1 and C2). Connect one from XTAL1 to GND and one from XTAL2 to GND.
+
+6. **AREF pin.** Add a 100 nF capacitor from AREF (pin 21) to GND. This filters the analog reference voltage.
+</Steps>
+
+### Reset Circuit
+
+<Steps>
+1. **Place the pull-up resistor.** Add `R` (10 kΩ, R1). Connect one end to the RESET pin (pin 1) and the other to `+5V`. This keeps the MCU running; pulling RESET low resets it.
+
+2. **Place the reset button.** Add `SW_Push`. Connect one side to RESET and the other to `GND`. Pressing the button pulls RESET low.
+</Steps>
+
+### ISP Programming Header
+
+The 6-pin ISP header lets you program the ATmega328P using a USBasp programmer or an Arduino acting as ISP.
+
+<Steps>
+1. **Place a 2x3 connector.** Add `Conn_AVR_ISP` (or `Conn_02x03_Odd_Even`). This is the standard AVR ISP pinout.
+
+2. **Wire the ISP signals:**
+   - Pin 1 (MISO) to PB4 (pin 18)
+   - Pin 2 (VCC) to `+5V`
+   - Pin 3 (SCK) to PB5 (pin 19)
+   - Pin 4 (MOSI) to PB3 (pin 17)
+   - Pin 5 (RESET) to RESET (pin 1)
+   - Pin 6 (GND) to `GND`
+</Steps>
+
+### LEDs
+
+<Steps>
+1. **Power LED.** Add `LED` (D1) and `R` (R2, 330 Ω). Connect `+5V` to R2, R2 to D1 anode, D1 cathode to `GND`.
+
+2. **User LED.** Add `LED` (D2) and `R` (R3, 330 Ω). Connect PB5 (pin 19) to R3, R3 to D2 anode, D2 cathode to `GND`. PB5 is the classic Arduino D13 pin.
+</Steps>
+
+### I/O Pin Headers
+
+<Steps>
+1. **Place two 1x14 connectors.** Add `Conn_01x14_Pin` for J3 and J4. Place them on the left and right edges of the schematic.
+
+2. **Wire J3** to the left-side MCU pins: PD0-PD7 (pins 2-6, 11-13) and PB0-PB5 (pins 14-19).
+
+3. **Wire J4** to the analog/remaining pins: PC0-PC5 (pins 23-28), plus `+5V`, `GND`, AREF, and RESET for convenience.
+</Steps>
+
+### Assign Component Values
+
+Before leaving the schematic editor, assign values to every component:
+
+<Steps>
+1. Double-click each component to open its properties.
+
+2. Set the **Value** field:
+   - C1, C2: `22pF`
+   - C3, C4: `100nF`
+   - C5, C6: `10uF`
+   - R1: `10k`
+   - R2, R3: `330`
+   - Y1: `16MHz`
+
+3. Run **Inspect > Electrical Rules Check** (ERC). Fix any errors (unconnected pins, missing power flags). The ERC should pass with zero errors before you proceed.
+</Steps>
+
+### Assign Footprints
+
+Every schematic symbol needs a physical footprint for the PCB.
+
+Open **Tools > Assign Footprints** (or click the footprint assignment icon in the toolbar) and assign each symbol its physical footprint:
+
+| Symbol | Footprint |
+|--------|-----------|
+| ATmega328P-PU | `Package_DIP:DIP-28_W7.62mm` |
+| AMS1117-5.0 | `Package_TO_SOT_SMD:SOT-223-3_TabPin2` (or `Package_TO_SOT_THT:TO-220-3_Vertical` for a through-hole version) |
+| Crystal 16MHz | `Crystal:Crystal_HC49-U_Vertical` |
+| C 22pF, 100nF | `Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P2.50mm` |
+| C_Polarized 10uF | `Capacitor_THT:CP_Radial_D5.0mm_P2.50mm` |
+| R (all) | `Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm` |
+| LED 3mm | `LED_THT:LED_D3.0mm` |
+| SW_Push | `Button_Switch_THT:SW_PUSH_6mm` |
+| Barrel_Jack | `Connector_BarrelJack:BarrelJack_Horizontal` |
+| Conn_AVR_ISP | `Connector_PinHeader_2.54mm:PinHeader_2x03_P2.54mm_Vertical` |
+| Conn_01x14 | `Connector_PinHeader_2.54mm:PinHeader_1x14_P2.54mm_Vertical` |
+
+Click **Apply, Save Schematic & Continue**, then close the footprint assignment dialog.
+
+## PCB Layout
+
+<InArticleAd />
+
+
+Now we translate the schematic into a physical board.
+
+### Import Netlist
+
+<Steps>
+1. In the Schematic Editor, run **Tools > Update PCB from Schematic** (or press `F8`). This opens the PCB Editor and imports all components with their connections (the netlist).
+
+2. All components appear stacked in one corner. Click to place them roughly in the center of the board.
+</Steps>
+
+### Define Board Outline
+
+<Steps>
+1. Select the **Edge.Cuts** layer in the Layers panel.
+
+2. Use **Place > Rectangle** to draw a 50 x 40 mm rectangle. You can type exact coordinates: start at (0, 0), end at (50, 40), or use the coordinate entry fields.
+
+3. Round the corners if you want: select the rectangle, right-click, and choose **Set Corner Radius** (1 mm works well).
+</Steps>
+
+### Component Placement
+
+Good placement is the most important step in PCB layout. Place components logically before routing any traces.
+
+<Steps>
+1. **Barrel jack** on the left edge, oriented so the plug inserts from outside the board.
+
+2. **Voltage regulator** near the barrel jack, with its input and output capacitors (C5, C6) close by.
+
+3. **ATmega328P** in the center. Orient it so pin 1 is at the top-left. Use a DIP socket in your actual build for easy chip replacement.
+
+4. **Crystal and load caps** (Y1, C1, C2) as close to XTAL1/XTAL2 (pins 9, 10) as possible. Keep the traces short to minimize noise pickup.
+
+5. **Decoupling caps** (C3, C4) immediately next to the VCC and AVCC pins. The trace from the cap to the power pin should be as short as possible.
+
+6. **ISP header** (J2) near the MCU, accessible from the board edge for easy programmer connection.
+
+7. **Reset button** near the ISP header or board edge.
+
+8. **LEDs and resistors** along one edge where they are visible.
+
+9. **Pin headers** (J3, J4) on the left and right edges, making the board breadboard-friendly (2.54mm pitch, 15.24mm apart for standard breadboard rails).
+</Steps>
+
+### Design Rules
+
+Before routing, set up design rules appropriate for home etching:
+
+<Steps>
+1. Open **Board Setup > Design Rules > Net Classes**.
+
+2. Set the **Default** net class:
+   - Track width: **0.5 mm** (generous for etching, about 20 mil)
+   - Clearance: **0.3 mm** (12 mil)
+   - Via size: **0.8 mm** (drill 0.4 mm), though we will avoid vias on a single-sided board
+
+3. Add a **Power** net class for `+5V` and `GND`:
+   - Track width: **0.8 mm** (wider for current-carrying traces)
+   - Clearance: **0.3 mm**
+
+4. Click **OK** to save the rules.
+</Steps>
+
+### Routing
+
+<Steps>
+1. **Route power first.** Press `X` to start routing. Connect all `+5V` and `GND` traces first, using the wider Power net class. Route `GND` on the bottom copper layer if needed, but try to keep everything on one side for etching.
+
+2. **Route the crystal.** Keep XTAL1 and XTAL2 traces short and parallel, away from other signals. This is the most noise-sensitive part of the circuit.
+
+3. **Route ISP signals.** MISO, MOSI, SCK, and RESET from the MCU to the ISP header. Keep them reasonably short.
+
+4. **Route remaining signals.** Connect the LEDs, reset button, and pin headers. The interactive router (press `X` and click pads) will push existing traces out of the way.
+
+5. **Add a ground pour.** Select the **F.Cu** layer, then **Place > Zone**. Click the four corners of the board outline, select `GND` as the net, and press `B` to fill the zone. This connects all ground pads with a copper fill, improving noise immunity and making etching easier (less copper to remove).
+
+6. **Run DRC.** Open **Inspect > Design Rules Check** and click **Run DRC**. Fix any errors. Common issues:
+   - Unconnected pads (missed a trace)
+   - Clearance violations (traces too close together)
+   - Unrouted nets (the ratsnest lines still showing)
+
+   The DRC should pass with zero errors and zero unconnected items.
+</Steps>
+
+### 3D Preview
+
+Before manufacturing, check the 3D view:
+
+<Steps>
+1. Press `Alt+3` or go to **View > 3D Viewer**.
+
+2. Visually inspect:
+   - Are all components on the correct side?
+   - Does the barrel jack orient correctly?
+   - Do the pin headers align for breadboard use?
+   - Is there enough clearance between tall components?
+
+3. Rotate the view to check from all angles. This catches placement mistakes that are invisible in the 2D view.
+</Steps>
+
+## Manufacturing: Home Etching
+
+<InArticleAd />
+
+
+For this first board, we will use the toner transfer method for home etching. This is the most accessible way to make a PCB without ordering from a fab house.
+
+### Generate Manufacturing Files
+
+<Steps>
+1. **Export the copper layer as PDF.** Go to **File > Plot**. Select only `F.Cu` (front copper). Set output format to **PDF**. Check **Mirrored** (because we will transfer the toner to the copper). Click **Plot**.
+
+2. **Export the drill file.** In the Plot dialog, click **Generate Drill Files**. Select **Excellon** format. Click **Generate Drill File**. This tells you where to drill holes.
+
+3. **Export silkscreen (optional).** Plot `F.SilkS` as a separate PDF for reference. You can transfer it to the board after etching if you want component labels.
+</Steps>
+
+### Toner Transfer Process
+
+<Steps>
+1. **Print the copper layer PDF** on glossy magazine paper (or dedicated toner transfer paper) using a laser printer. The print must be mirrored so it reads correctly when transferred.
+
+2. **Prepare the copper board.** Cut a single-sided copper-clad board to 50 x 40 mm. Clean the copper surface with fine sandpaper (400-600 grit) and isopropyl alcohol. The surface must be spotless for the toner to stick.
+
+3. **Transfer the toner.** Place the printed side of the paper face-down on the clean copper. Iron over it with a clothes iron set to maximum heat (no steam) for about 5 minutes, applying firm, even pressure. Let it cool, then soak in warm water and gently peel the paper away. The toner stays on the copper.
+
+4. **Etch the board.** Submerge the board in ferric chloride solution (available at electronics stores). Agitate gently. The exposed copper dissolves in 10-30 minutes depending on temperature and concentration. The areas protected by toner remain as traces.
+
+5. **Clean the board.** Remove the board when all exposed copper is gone. Rinse with water. Remove the remaining toner with acetone or fine sandpaper.
+
+6. **Drill the holes.** Use a 0.8 mm drill bit for component leads and a 1.0 mm bit for pin headers and the barrel jack. A drill press or hand drill with a PCB drill bit works. Use the drill file as a reference for hole positions.
+
+7. **Inspect the board.** Check for:
+   - Broken traces (fix with a thin wire and solder)
+   - Short circuits between traces (scrape away with a craft knife)
+   - Clean, properly-sized holes
+</Steps>
+
+:::caution[Safety]
+Ferric chloride stains permanently and is mildly corrosive. Wear gloves and eye protection. Work in a ventilated area. Dispose of used etchant according to local regulations (never pour it down the drain).
+:::
+
+## Soldering and Assembly
+
+<InArticleAd />
+
+
+<Steps>
+1. **Install the DIP socket first.** Solder the 28-pin DIP socket for U1. This lets you remove the ATmega328P without desoldering. Align the notch with pin 1.
+
+2. **Solder low-profile components next.** Resistors (R1, R2, R3), ceramic capacitors (C1-C4), and the crystal (Y1).
+
+3. **Then taller components.** Electrolytic capacitors (C5, C6, watch polarity), LEDs (D1, D2, longer leg is anode/positive), the reset button (SW1).
+
+4. **Connectors last.** Barrel jack (J1), ISP header (J2), pin headers (J3, J4). These are the tallest components.
+
+5. **Voltage regulator.** Solder U2 (AMS1117-5.0). If using the SOT-223 surface-mount version, solder it on the bottom of the board. If using TO-220 through-hole, it goes on top with a small heat sink if needed.
+
+6. **Insert the ATmega328P** into the DIP socket. Match pin 1 (marked with a dot on the chip) with the socket notch.
+</Steps>
+
+## First Power-On
+
+<InArticleAd />
+
+
+<Steps>
+1. **Visual inspection.** Before applying power, check every solder joint under magnification. Look for solder bridges (shorts between adjacent pins) and cold joints (dull, lumpy solder).
+
+2. **Continuity check.** Use a multimeter in continuity mode. Verify:
+   - No short between `+5V` and `GND`
+   - `+5V` reaches VCC (pin 7) and AVCC (pin 20)
+   - `GND` reaches pins 8 and 22
+
+3. **Apply power.** Connect a 9V battery or 7-12V power supply to the barrel jack. The power LED (D1) should light up.
+
+4. **Measure voltages.** With the multimeter, verify:
+   - 5.0V (±0.1V) between `+5V` and `GND`
+   - 5.0V at ATmega328P VCC (pin 7)
+   - If the voltage is wrong, power off immediately and check the regulator connections.
+</Steps>
+
+## Firmware: Blink LED
+
+<InArticleAd />
+
+
+We will program the ATmega328P directly over ISP, without the Arduino IDE or bootloader. This proves the board works at the hardware level.
+
+### Toolchain Setup
+
+<Tabs>
+<TabItem label="Linux">
+```bash
+sudo apt install avr-libc avrdude gcc-avr
+```
+</TabItem>
+<TabItem label="macOS">
+```bash
+brew install avr-gcc avrdude
+```
+</TabItem>
+<TabItem label="Windows">
+Download WinAVR from [sourceforge.net/projects/winavr](https://sourceforge.net/projects/winavr/) or install the AVR toolchain via the Arduino IDE's board manager and add it to your PATH.
+</TabItem>
+</Tabs>
+
+### Blink Code
+
+Save this as `blink.c`:
+
+```c
+/*
+ * blink.c - Toggle LED on PB5 (pin 19) every 500ms
+ * ATmega328P @ 16 MHz, no Arduino, no bootloader
+ */
+
+#define F_CPU 16000000UL
+
+#include <avr/io.h>
+#include <util/delay.h>
+
+int main(void) {
+    DDRB |= (1 << PB5);   /* Set PB5 as output */
+
+    while (1) {
+        PORTB ^= (1 << PB5);  /* Toggle PB5 */
+        _delay_ms(500);
+    }
+}
+```
+
+### Compile and Flash
+
+Connect a USBasp programmer (or Arduino-as-ISP) to the 6-pin ISP header. The ribbon cable pin 1 should match the header pin 1.
+
+```bash
+# Compile
+avr-gcc -mmcu=atmega328p -DF_CPU=16000000UL -Os -o blink.elf blink.c
+avr-objcopy -O ihex blink.elf blink.hex
+
+# Set fuses for 16 MHz external crystal
+avrdude -c usbasp -p m328p -U lfuse:w:0xFF:m -U hfuse:w:0xDE:m -U efuse:w:0xFD:m
+
+# Flash the program
+avrdude -c usbasp -p m328p -U flash:w:blink.hex:i
+```
+
+If you are using an Arduino Uno as an ISP programmer, replace `-c usbasp` with `-c arduino -P /dev/ttyACM0 -b 19200` (adjust the port for your system).
+
+The red user LED (D2) should now blink at 1 Hz (500ms on, 500ms off). If it does, your board is fully functional: power supply, crystal, MCU, and I/O all work.
+
+:::tip[Fuse settings explained]
+- `lfuse = 0xFF`: External full-swing crystal, slow rising power (safe defaults)
+- `hfuse = 0xDE`: SPI programming enabled, 512-byte boot section, no bootloader
+- `efuse = 0xFD`: Brown-out detection at 2.7V
+
+These fuses configure the ATmega328P to run from the 16 MHz external crystal. Write them only once; they persist across reflashes.
+:::
+
+## What You Have Learned
+
+<InArticleAd />
+
+
+<Card title="Lesson 1 Complete" icon="approve-check">
+
+**KiCad skills:**
+- Created a new project, built a complete schematic, assigned footprints
+- Designed a PCB layout with design rules, ground pour, and DRC
+- Exported manufacturing files (copper PDF, drill file)
+
+**Electronics skills:**
+- ATmega328P minimal circuit (crystal, decoupling, reset, ISP)
+- LDO voltage regulation with input/output capacitors
+- Component placement strategy for noise immunity
+
+**Manufacturing skills:**
+- Toner transfer PCB etching process
+- Drilling and inspection
+- Through-hole soldering order (low to high components)
+
+**Firmware skills:**
+- Bare-metal AVR C programming (no Arduino abstraction)
+- AVR fuse configuration for external crystal
+- ISP programming with avrdude
+</Card>
+
+:::tip[Next Lesson]
+In [Lesson 2: ATmega328P Sensor Shield](/education/pcb-design-kicad/atmega328p-sensor-shield-smd-components), you will upgrade to an SMD ATmega328P (TQFP-32) with I2C and SPI sensors. You will learn SMD footprints, double-sided layout, and CNC milling as a manufacturing method.
+:::
+
+<PcbDesignKicadComments />
+
+
+
+<InArticleAd />
+<TawkWidget />
+<Copyright />

@@ -1,0 +1,638 @@
+---
+title: "Code-Based PCB Design with KiCad Scripting"
+description: "Recreate the ATmega328P breakout board from Lesson 1 using Python and KiCad's scripting API. Introduction to SKiDL for programmatic netlists, parametric footprints, automated DRC, and the future of code-driven electronics design"
+contributors: "sam-macharia"
+pubDate: 2026-03-05
+tags: ["kicad", "pcb-design", "python", "skidl", "scripting", "automation", "parametric", "code-driven-design"]
+excerpt: "Take everything you learned in Lessons 1 through 8 and express it as Python code. Use SKiDL to define circuits programmatically, generate KiCad netlists, and automate PCB design tasks. This lesson bridges traditional schematic capture with code-driven electronics design."
+heroImage: "https://cdn.siliconwit.com/education/pcb-design-kicad/pcb-design-kicad.png"
+---
+
+import TawkWidget from '../../../../components/TawkWidget.astro';
+import UniversalContentContributors from '../../../../components/UniversalContentContributors.astro';
+import InArticleAd from '../../../../components/InArticleAd.astro';
+import Copyright from '../../../../components/Copyright.astro';
+import BionicText from '../../../../components/BionicText.astro';
+import TailwindWrapper from '../../../../components/TailwindWrapper.jsx';
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Card, CardGrid, Badge, Steps, LinkButton } from '@astrojs/starlight/components';
+
+<UniversalContentContributors 
+  contributors={frontmatter.contributors}
+/>
+
+
+
+import PcbDesignKicadComments from '../../../../components/pcb-design-kicad/PcbDesignKicadComments.astro';
+
+This final lesson takes a different approach. Instead of drawing schematics and placing components by hand, you will define the ATmega328P breakout board from Lesson 1 entirely in Python code. The circuit becomes a script you can version control, parameterize, and regenerate on demand. #KiCad #Python #SKiDL
+
+## Why Code-Based PCB Design?
+
+<Card title="Code Your Circuits" icon="star">
+
+Every board you designed in Lessons 1 through 8 lives in binary KiCad project files. They work, but they are hard to diff, hard to parameterize, and impossible to generate programmatically. Code-based PCB design solves these problems:
+
+- **Version control**: a Python script diffs cleanly in Git, line by line. A binary `.kicad_sch` file does not.
+- **Parametric designs**: change one variable (crystal frequency, number of I/O pins, LED count) and regenerate the entire board.
+- **Automation**: generate 50 board variants from a single script with a loop.
+- **Testing**: write unit tests for your circuit definitions, catching wiring errors before you ever open KiCad.
+- **Reproducibility**: anyone can run your script and get the exact same netlist, every time.
+- **Review**: code review a circuit the same way you review firmware. Pull requests for hardware.
+
+If you have taken the [Code-Based Mechanical Design](/education/code-based-mechanical-design/) course, this is the electronics equivalent: replacing a GUI workflow with a script that produces the same output, but with all the benefits of code.
+
+</Card>
+
+## Tools Overview
+
+<InArticleAd />
+
+
+Two Python tools make code-based PCB design practical with KiCad:
+
+<CardGrid>
+  <Card title="SKiDL" icon="open-book">
+    A Python library for defining electronic circuits in code. You declare parts, connect pins to nets, and SKiDL generates a KiCad-compatible netlist. It replaces the schematic editor for circuit definition. Install with `pip install skidl`.
+  </Card>
+
+  <Card title="KiCad pcbnew API" icon="setting">
+    KiCad's built-in Python module for manipulating PCB files. It can load netlists, place components at specific coordinates, set board outlines, run DRC, and export manufacturing files. It replaces manual interaction with the PCB editor.
+  </Card>
+</CardGrid>
+
+**How they work together:** SKiDL handles the "what" (which components, how they connect), while pcbnew handles the "where" (component placement, board outline, routing). SKiDL outputs a `.net` file that pcbnew imports, just as if you had drawn a schematic and exported a netlist through the GUI.
+
+## Setup
+
+<InArticleAd />
+
+
+<Steps>
+
+1. **Install KiCad 9**
+
+   You need KiCad installed for its symbol and footprint libraries. If you have been following this course, KiCad is already on your machine.
+
+2. **Install SKiDL**
+
+   <Tabs>
+   <TabItem label="Linux">
+   ```bash
+   pip install skidl
+   # If KiCad libraries are not found automatically:
+   export KICAD7_SYMBOL_DIR=/usr/share/kicad/symbols
+   export KICAD7_FOOTPRINT_DIR=/usr/share/kicad/footprints
+   ```
+   </TabItem>
+   <TabItem label="macOS">
+   ```bash
+   pip install skidl
+   # Typical KiCad 9 library path on macOS:
+   export KICAD7_SYMBOL_DIR=/Applications/KiCad/KiCad.app/Contents/SharedSupport/symbols
+   export KICAD7_FOOTPRINT_DIR=/Applications/KiCad/KiCad.app/Contents/SharedSupport/footprints
+   ```
+   </TabItem>
+   <TabItem label="Windows">
+   ```powershell
+   pip install skidl
+   # Typical KiCad 9 library path on Windows:
+   set KICAD7_SYMBOL_DIR=C:\Program Files\KiCad\9.0\share\kicad\symbols
+   set KICAD7_FOOTPRINT_DIR=C:\Program Files\KiCad\9.0\share\kicad\footprints
+   ```
+   </TabItem>
+   </Tabs>
+
+3. **Verify the installation**
+
+   ```python
+   from skidl import *
+
+   # Create a simple resistor to confirm SKiDL can find KiCad libraries
+   r = Part('Device', 'R', value='10k', footprint='Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal')
+   print(f"Part created: {r.name}, value: {r.value}")
+   print("SKiDL is working.")
+   ```
+
+   Run this script. If it prints the part details without errors, your environment is ready.
+
+</Steps>
+
+## Building the ATmega328P Breakout in Code
+
+<InArticleAd />
+
+
+This is the main event. You will recreate the entire Lesson 1 circuit (ATmega328P, crystal, voltage regulator, LEDs, ISP header, pin headers) as a Python script using SKiDL.
+
+### Power Supply Section
+
+Start with the power input and 5V regulation, exactly matching Lesson 1's barrel jack and AMS1117-5.0 circuit:
+
+```python
+from skidl import *
+
+# Power nets
+vcc = Net('+5V')
+gnd = Net('GND')
+vin = Net('VIN')
+
+# Barrel jack for external power (7-12V)
+j1 = Part('Connector', 'Barrel_Jack_Switch',
+          footprint='Connector_BarrelJack:BarrelJack_Horizontal')
+j1[1] += vin   # Tip (positive)
+j1[2] += gnd   # Sleeve (ground)
+j1[3] += gnd   # Switch (tied to ground)
+
+# AMS1117-5.0 voltage regulator
+u2 = Part('Regulator_Linear', 'AMS1117-5.0',
+          footprint='Package_TO_SOT_SMD:SOT-223-3_TabPin2')
+u2['VI'] += vin
+u2['VO'] += vcc
+u2['GND'] += gnd
+
+# Input capacitor (10 uF electrolytic)
+c5 = Part('Device', 'C_Polarized', value='10uF',
+          footprint='Capacitor_THT:CP_Radial_D5.0mm_P2.50mm')
+c5[1] += vin
+c5[2] += gnd
+
+# Output capacitor (10 uF electrolytic)
+c6 = Part('Device', 'C_Polarized', value='10uF',
+          footprint='Capacitor_THT:CP_Radial_D5.0mm_P2.50mm')
+c6[1] += vcc
+c6[2] += gnd
+```
+
+Each `Part()` call mirrors a component you placed in the Lesson 1 schematic. The `+=` operator connects a pin to a net, replacing a wire in the schematic editor.
+
+### MCU and Crystal
+
+```python
+# ATmega328P in DIP-28
+u1 = Part('MCU_Microchip_ATmega', 'ATmega328P-PU',
+          footprint='Package_DIP:DIP-28_W7.62mm')
+u1['VCC'] += vcc
+u1['AVCC'] += vcc
+u1['GND'] += gnd
+u1['GND'] += gnd   # ATmega328P has two GND pins
+
+# 16 MHz crystal
+xtal_net1 = Net('XTAL1')
+xtal_net2 = Net('XTAL2')
+
+y1 = Part('Device', 'Crystal', value='16MHz',
+          footprint='Crystal:Crystal_HC49-U_Vertical')
+y1[1] += xtal_net1
+y1[2] += xtal_net2
+
+u1['XTAL1'] += xtal_net1
+u1['XTAL2'] += xtal_net2
+
+# Crystal load capacitors (22 pF each)
+c1 = Part('Device', 'C', value='22pF',
+          footprint='Capacitor_THT:C_Disc_D3.0mm_W1.6mm_P2.50mm')
+c1[1] += xtal_net1
+c1[2] += gnd
+
+c2 = Part('Device', 'C', value='22pF',
+          footprint='Capacitor_THT:C_Disc_D3.0mm_W1.6mm_P2.50mm')
+c2[1] += xtal_net2
+c2[2] += gnd
+
+# Decoupling capacitors (100 nF)
+c3 = Part('Device', 'C', value='100nF',
+          footprint='Capacitor_THT:C_Disc_D3.0mm_W1.6mm_P2.50mm')
+c3[1] += vcc
+c3[2] += gnd
+
+c4 = Part('Device', 'C', value='100nF',
+          footprint='Capacitor_THT:C_Disc_D3.0mm_W1.6mm_P2.50mm')
+c4[1] += vcc
+c4[2] += gnd
+```
+
+### Reset Circuit
+
+```python
+# Reset pull-up resistor (10k)
+reset_net = Net('RESET')
+
+r1 = Part('Device', 'R', value='10k',
+          footprint='Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal')
+r1[1] += vcc
+r1[2] += reset_net
+
+# Reset tactile switch
+sw1 = Part('Switch', 'SW_Push',
+           footprint='Button_Switch_THT:SW_PUSH_6mm')
+sw1[1] += reset_net
+sw1[2] += gnd
+
+u1['~{RESET}'] += reset_net
+```
+
+### ISP Header
+
+```python
+# 2x3 ISP programming header
+j2 = Part('Connector_Generic', 'Conn_02x03_Odd_Even',
+          footprint='Connector_PinHeader_2.54mm:PinHeader_2x03_P2.54mm_Vertical')
+
+j2[1] += u1['PB3']   # MOSI
+j2[2] += vcc          # VCC
+j2[3] += u1['PB5']    # SCK
+j2[4] += u1['PB4']    # MISO
+j2[5] += reset_net    # RESET
+j2[6] += gnd          # GND
+```
+
+### LEDs
+
+```python
+# Power LED (green) with 330 ohm resistor
+led_net1 = Net('LED_PWR')
+
+r2 = Part('Device', 'R', value='330',
+          footprint='Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal')
+r2[1] += vcc
+r2[2] += led_net1
+
+d1 = Part('Device', 'LED', value='Green',
+          footprint='LED_THT:LED_D3.0mm')
+d1[1] += led_net1   # Anode
+d1[2] += gnd         # Cathode
+
+# User LED (red, on PB5/D13) with 330 ohm resistor
+led_net2 = Net('LED_USER')
+
+r3 = Part('Device', 'R', value='330',
+          footprint='Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal')
+r3[1] += u1['PB5']
+r3[2] += led_net2
+
+d2 = Part('Device', 'LED', value='Red',
+          footprint='LED_THT:LED_D3.0mm')
+d2[1] += led_net2   # Anode
+d2[2] += gnd         # Cathode
+```
+
+### I/O Headers
+
+```python
+# Two 1x14 pin headers exposing all I/O
+j3 = Part('Connector_Generic', 'Conn_01x14',
+          footprint='Connector_PinHeader_2.54mm:PinHeader_1x14_P2.54mm_Vertical')
+j4 = Part('Connector_Generic', 'Conn_01x14',
+          footprint='Connector_PinHeader_2.54mm:PinHeader_1x14_P2.54mm_Vertical')
+
+# J3: Digital pins PD0-PD7, PB0-PB5
+digital_pins = ['PD0','PD1','PD2','PD3','PD4','PD5','PD6','PD7',
+                'PB0','PB1','PB2','PB3','PB4','PB5']
+for i, pin in enumerate(digital_pins):
+    j3[i + 1] += u1[pin]
+
+# J4: Analog pins PC0-PC5, power, reset
+analog_pins = ['PC0','PC1','PC2','PC3','PC4','PC5']
+for i, pin in enumerate(analog_pins):
+    j4[i + 1] += u1[pin]
+j4[7] += reset_net; j4[8] += vcc; j4[9] += gnd
+j4[10] += vcc; j4[11] += gnd; j4[12] += vin
+j4[13] += u1['AREF']; j4[14] += gnd
+```
+
+### Generate the Netlist
+
+```python
+# Run ERC (Electrical Rules Check) and generate netlist
+ERC()
+generate_netlist()
+print("Netlist generated: atmega328p_breakout.net")
+```
+
+### Complete Script
+
+To use the circuit, combine all the sections above into a single file called `atmega328p_breakout.py`. The structure is straightforward: imports at the top, net declarations, then each subsection (power, MCU, crystal, reset, ISP, LEDs, headers), ending with `ERC()` and `generate_netlist()`. Run it with `python atmega328p_breakout.py` and SKiDL produces a `.net` file in the current directory that KiCad can import directly.
+
+## From Netlist to PCB
+
+<InArticleAd />
+
+
+Once you have the netlist, you need to get it into a PCB layout. There are two paths: manual import through the KiCad GUI, or scripted placement using the pcbnew Python API.
+
+### Manual Import
+
+<Steps>
+
+1. **Open KiCad** and create a new project.
+
+2. **Open the PCB Editor** (pcbnew).
+
+3. **File, Import Netlist** and select the `.net` file generated by SKiDL.
+
+4. **Place components** manually, just as you did in Lesson 1. All footprints, net connections, and reference designators come from the netlist.
+
+5. **Route traces**, add copper pours, and run DRC as normal.
+
+</Steps>
+
+This is the simplest approach. You get the benefit of code-defined circuits with the familiar KiCad layout workflow.
+
+### Scripted Placement with pcbnew
+
+For full automation, use KiCad's pcbnew Python module to place components at specific coordinates:
+
+```python
+"""
+Basic pcbnew script to set up board outline and place components.
+Run inside KiCad's scripting console or with the standalone pcbnew Python module.
+"""
+
+import pcbnew
+
+# Load the board (or create a new one)
+board = pcbnew.LoadBoard("atmega328p_breakout.kicad_pcb")
+
+# Set board outline (50mm x 40mm, matching Lesson 1)
+outline = pcbnew.PCB_SHAPE(board)
+outline.SetShape(pcbnew.SHAPE_T_RECT)
+outline.SetStart(pcbnew.FromMM(0, 0))
+outline.SetEnd(pcbnew.FromMM(50, 40))
+outline.SetLayer(pcbnew.Edge_Cuts)
+outline.SetWidth(pcbnew.FromMM(0.1))
+board.Add(outline)
+
+# Place components at specific coordinates
+placement = {
+    'U1': (25, 20),    # ATmega328P, center of board
+    'U2': (8, 8),      # Voltage regulator, near power input
+    'J1': (3, 8),      # Barrel jack, board edge
+    'Y1': (35, 15),    # Crystal, near MCU
+    'J2': (40, 5),     # ISP header, top right
+    'J3': (5, 35),     # I/O header left
+    'J4': (45, 35),    # I/O header right
+}
+
+for ref, (x, y) in placement.items():
+    footprint = board.FindFootprintByReference(ref)
+    if footprint:
+        footprint.SetPosition(pcbnew.FromMM(x, y))
+
+# Save the modified board
+board.Save("atmega328p_breakout_placed.kicad_pcb")
+print("Components placed. Open the board in KiCad to route traces.")
+```
+
+:::note
+Automated trace routing is not built into KiCad's Python API. After scripted placement, you still route traces manually in the GUI or use an external autorouter like FreeRouting. The value of scripted placement is consistency: run the script again after a netlist change and all components return to their assigned positions.
+:::
+
+## Parametric Design Example
+
+<InArticleAd />
+
+
+The real power of code-based design is parameterization. Wrap the breakout circuit in a function that accepts parameters, and you can generate multiple board variants from one script. Here are the key parametric sections:
+
+```python
+from skidl import *
+
+def make_breakout(crystal_freq='16MHz', num_io_pins=14, led_count=2,
+                  board_name='atmega328p_breakout'):
+    """Generate a breakout board netlist with configurable parameters."""
+    default_circuit.reset()
+
+    vcc, gnd, vin = Net('+5V'), Net('GND'), Net('VIN')
+    reset_net = Net('RESET')
+
+    # ... (MCU, power supply, reset circuit same as before) ...
+
+    # Crystal with parametric frequency and matching load caps
+    xtal1, xtal2 = Net('XTAL1'), Net('XTAL2')
+    y1 = Part('Device', 'Crystal', value=crystal_freq,
+              footprint='Crystal:Crystal_HC49-U_Vertical')
+    y1[1] += xtal1; y1[2] += xtal2
+
+    load_cap_values = {'8MHz': '15pF', '16MHz': '22pF', '20MHz': '18pF'}
+    cap_val = load_cap_values.get(crystal_freq, '22pF')
+
+    for net in [xtal1, xtal2]:
+        c = Part('Device', 'C', value=cap_val,
+                 footprint='Capacitor_THT:C_Disc_D3.0mm_W1.6mm_P2.50mm')
+        c[1] += net; c[2] += gnd
+
+    # Parametric LEDs (1 to 4)
+    led_colors = ['Green', 'Red', 'Yellow', 'Blue']
+    led_pins = [None, 'PB5', 'PB4', 'PB3']
+    for i in range(min(led_count, 4)):
+        led_net = Net(f'LED_{i}')
+        r = Part('Device', 'R', value='330',
+                 footprint='Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal')
+        d = Part('Device', 'LED', value=led_colors[i],
+                 footprint='LED_THT:LED_D3.0mm')
+        r[1] += vcc if i == 0 else u1[led_pins[i]]
+        r[2] += led_net; d[1] += led_net; d[2] += gnd
+
+    # Parametric I/O header (variable pin count)
+    digital_pins = ['PD0','PD1','PD2','PD3','PD4','PD5','PD6','PD7',
+                    'PB0','PB1','PB2','PB3','PB4','PB5']
+    pin_count = min(num_io_pins, 14)
+    j3 = Part('Connector_Generic', f'Conn_01x{pin_count:02d}',
+              footprint=f'Connector_PinHeader_2.54mm:PinHeader_1x{pin_count:02d}_P2.54mm_Vertical')
+    for p in range(pin_count):
+        j3[p + 1] += u1[digital_pins[p]]
+
+    ERC()
+    generate_netlist(file_=f'{board_name}.net')
+    print(f"Generated {board_name}.net: {crystal_freq}, {pin_count} I/O pins, {led_count} LEDs")
+
+# Generate three variants from one function
+make_breakout('16MHz', 14, 2, 'breakout_full')
+make_breakout('8MHz',   8, 1, 'breakout_minimal')
+make_breakout('20MHz', 14, 4, 'breakout_extended')
+```
+
+Three different board variants, three function calls. The `breakout_minimal` variant uses an 8 MHz crystal with different load capacitors, a single power LED, and only 8 I/O pins. The `breakout_extended` variant runs at 20 MHz with four LEDs. Each produces its own netlist file.
+
+## Automated DRC with Python
+
+<InArticleAd />
+
+
+KiCad's pcbnew module lets you run Design Rule Checks programmatically. This is useful in CI/CD pipelines or for batch-checking multiple board variants:
+
+```python
+"""
+Run DRC on a KiCad PCB file and report results.
+Requires KiCad's pcbnew Python module.
+"""
+
+import pcbnew
+
+def run_drc(pcb_path):
+    """Run DRC on a board file and return pass/fail with details."""
+    board = pcbnew.LoadBoard(pcb_path)
+
+    # Create DRC engine
+    drc = pcbnew.DRC_ENGINE(board, board.GetDesignSettings())
+    drc.InitEngine()
+
+    # Run all DRC checks
+    drc.RunTests()
+
+    # Collect violations
+    markers = board.GetMarkers()
+    violations = []
+
+    for marker in markers:
+        item = marker.GetRCItem()
+        violations.append({
+            'severity': marker.GetSeverity(),
+            'message': item.GetErrorMessage(),
+            'x': pcbnew.ToMM(marker.GetPosition().x),
+            'y': pcbnew.ToMM(marker.GetPosition().y),
+        })
+
+    # Report
+    if not violations:
+        print(f"DRC PASSED: {pcb_path}")
+        print("No violations found.")
+        return True
+    else:
+        print(f"DRC FAILED: {pcb_path}")
+        print(f"Found {len(violations)} violation(s):")
+        for i, v in enumerate(violations, 1):
+            print(f"  {i}. [{v['severity']}] {v['message']} "
+                  f"at ({v['x']:.2f}, {v['y']:.2f}) mm")
+        return False
+
+# Example usage
+passed = run_drc("atmega328p_breakout.kicad_pcb")
+if not passed:
+    exit(1)  # Fail the CI pipeline
+```
+
+You can integrate this into a build script or GitHub Actions workflow. Every push to your repository triggers DRC, catching clearance violations and unconnected nets before you order boards.
+
+## KiCad Action Plugins
+
+<InArticleAd />
+
+
+KiCad supports Python plugins that run inside the GUI, adding custom menu items and functionality. Here is a minimal plugin that stamps board information onto the silkscreen layer:
+
+```python
+"""
+KiCad Action Plugin: Add Board Info Text
+Place this file in KiCad's scripting/plugins directory.
+
+Linux:   ~/.local/share/kicad/9.0/scripting/plugins/
+macOS:   ~/Library/Preferences/kicad/9.0/scripting/plugins/
+Windows: %APPDATA%/kicad/9.0/scripting/plugins/
+"""
+
+import pcbnew
+import datetime
+
+class BoardInfoPlugin(pcbnew.ActionPlugin):
+    def defaults(self):
+        self.name = "Add Board Info"
+        self.category = "Fabrication"
+        self.description = "Stamps revision, date, and board name on silkscreen"
+        self.show_toolbar_button = True
+
+    def Run(self):
+        board = pcbnew.GetBoard()
+        board_name = board.GetFileName().split('/')[-1].replace('.kicad_pcb', '')
+        date_str = datetime.date.today().isoformat()
+        info_text = f"{board_name}  Rev 1.0  {date_str}"
+
+        # Create text item on front silkscreen
+        txt = pcbnew.PCB_TEXT(board)
+        txt.SetText(info_text)
+        txt.SetPosition(pcbnew.FromMM(25, 38))  # Near bottom center
+        txt.SetLayer(pcbnew.F_SilkS)
+        txt.SetTextSize(pcbnew.FromMM(1, 1))
+        txt.SetTextThickness(pcbnew.FromMM(0.15))
+
+        board.Add(txt)
+        pcbnew.Refresh()
+        print(f"Added board info: {info_text}")
+
+BoardInfoPlugin().register()
+```
+
+After placing the file in the plugins directory, restart KiCad. The plugin appears under **Tools, External Plugins**. One click adds a formatted label with the board name, revision, and date.
+
+## Limitations and the Road Ahead
+
+<InArticleAd />
+
+
+Code-based PCB design is powerful but not a complete replacement for the GUI workflow. Here is an honest assessment:
+
+**What works well today:**
+- Circuit definition and netlist generation (SKiDL is mature and reliable)
+- Parametric board variants from a single codebase
+- Automated DRC and manufacturing file export
+- Version control and code review for hardware designs
+
+**What is still maturing:**
+- SKiDL generates netlists, not visual schematics. You lose the ability to glance at a schematic diagram for quick understanding. Some teams generate a schematic from the netlist after the fact for documentation.
+- Automated component placement works for simple boards but requires manual tuning for complex layouts.
+- Automated routing is not built into KiCad's Python API. External tools like FreeRouting can help, but interactive routing in the GUI is still faster for most boards.
+- The pcbnew Python API changes between KiCad versions, so scripts may need updates when you upgrade.
+
+**The practical workflow:**
+The most effective approach combines both methods. Use Python and SKiDL for circuit definition (the "what"), then switch to KiCad's GUI for layout refinement (the "where"). You get version control and parameterization for the circuit while keeping the visual, interactive layout tools where they matter most.
+
+## What You Have Learned
+
+<InArticleAd />
+
+
+<Card title="Course Summary: PCB Design with KiCad" icon="star">
+
+Over nine lessons, you progressed from a beginner placing through-hole components to designing multi-layer mixed-signal boards and generating circuits from Python code:
+
+**Fundamentals (Lessons 1 and 2):**
+- Schematic capture: symbols, wires, power flags, net labels, ERC
+- PCB layout: footprint placement, trace routing, copper pours, DRC
+- Manufacturing: Gerber export, home etching, CNC milling
+- Through-hole and SMD component workflows
+
+**Intermediate (Lessons 3 and 4):**
+- USB interface design with ESD protection and impedance considerations
+- 4-layer PCB stackup with dedicated power and ground planes
+- Professional fab house ordering: Gerbers, BOM, pick-and-place files
+- Via stitching, differential pairs, and controlled impedance routing
+
+**Advanced (Lessons 5 through 8):**
+- RF design: antenna keepout zones, impedance-matched traces, ground plane integrity
+- Battery management: charging ICs, solar input, deep sleep circuitry
+- High-speed design: QFN packages, USB signal integrity, PIO interfaces
+- Mixed-signal design: motor drivers, IMU integration, current sensing, thermal management
+
+**Code-Based Design (Lesson 9):**
+- SKiDL for programmatic circuit definition and netlist generation
+- Parametric design: one script, many board variants
+- Automated DRC with KiCad's pcbnew Python API
+- KiCad action plugins for custom GUI extensions
+- When to use code vs. GUI in a practical workflow
+
+</Card>
+
+:::tip[Course Complete]
+Congratulations. You can now design PCBs from simple single-sided breakout boards to multi-layer, mixed-signal designs with USB, WiFi, battery management, and motor control. Every board you designed in this course is a real, manufacturable product.
+
+For designing enclosures and mechanical parts for your PCBs, check out the [Code-Based Mechanical Design](/education/code-based-mechanical-design/) course. It uses the same philosophy: Python code in, 3D models out, with full version control and parametric generation.
+:::
+
+<PcbDesignKicadComments />
+
+
+
+<InArticleAd />
+<TawkWidget />
+<Copyright />

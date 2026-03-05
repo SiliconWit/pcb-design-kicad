@@ -1,0 +1,766 @@
+---
+title: "STM32 USB Development Board: Blue Pill Style PCB"
+description: "Design a Blue Pill style STM32F103C8T6 development board with USB, SWD debug header, crystal oscillator, and 3.3V regulation. First professional fab house order with Gerber, BOM, and pick-and-place file generation for JLCPCB"
+contributors: "sam-macharia"
+pubDate: 2026-03-05
+tags: ["kicad", "pcb-design", "stm32", "usb", "swd", "arm-cortex-m3", "jlcpcb", "gerber", "development-board"]
+excerpt: "Design a complete STM32F103C8T6 development board in KiCad 9 with USB for programming and serial communication, SWD debug header, 8 MHz and 32.768 kHz crystals, 3.3V LDO regulation, and all GPIO broken out. Generate professional manufacturing files and place your first JLCPCB order."
+heroImage: "https://cdn.siliconwit.com/education/pcb-design-kicad/pcb-design-kicad.png"
+---
+
+import TawkWidget from '../../../../components/TawkWidget.astro';
+import UniversalContentContributors from '../../../../components/UniversalContentContributors.astro';
+import InArticleAd from '../../../../components/InArticleAd.astro';
+import Copyright from '../../../../components/Copyright.astro';
+import BionicText from '../../../../components/BionicText.astro';
+import TailwindWrapper from '../../../../components/TailwindWrapper.jsx';
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Card, CardGrid, Badge, Steps, LinkButton } from '@astrojs/starlight/components';
+
+<UniversalContentContributors 
+  contributors={frontmatter.contributors}
+/>
+
+
+
+import PcbDesignKicadComments from '../../../../components/pcb-design-kicad/PcbDesignKicadComments.astro';
+
+In this lesson you will design a complete STM32F103C8T6 development board in the classic Blue Pill form factor. The board includes USB for programming and serial communication, an SWD debug header, dual crystal oscillators, 3.3V regulation, and all GPIO broken out to pin headers. More importantly, this is your first professional fab house order: you will generate Gerber, BOM, and pick-and-place files, then walk through the entire JLCPCB ordering process. #KiCad #STM32 #PCBDesign
+
+## What We Are Building
+
+<Card title="STM32 Blue Pill Development Board" icon="star">
+A Blue Pill style development board built around the STM32F103C8T6 (ARM Cortex-M3, 72 MHz). The board provides USB connectivity for programming via the built-in bootloader, an SWD header for debugging, and two rows of pin headers exposing every GPIO pin. Power comes from USB 5V, regulated down to 3.3V by an AMS1117-3.3 LDO. This is the board you will send to JLCPCB for professional fabrication and partial assembly.
+</Card>
+
+**Board specifications:**
+
+| Parameter | Value |
+|-----------|-------|
+| MCU | STM32F103C8T6 (LQFP-48, 0.5mm pitch) |
+| Core | ARM Cortex-M3, 72 MHz max |
+| Memory | 64 KB Flash, 20 KB SRAM |
+| HSE Crystal | 8 MHz (for PLL to 72 MHz) |
+| LSE Crystal | 32.768 kHz (for RTC) |
+| USB | Type-B Mini, full-speed (12 Mbps) |
+| Power | AMS1117-3.3 LDO from USB 5V |
+| Debug | 4-pin SWD header (SWDIO, SWCLK, GND, 3V3) |
+| Boot | Boot0/Boot1 jumpers |
+| GPIO | 2x 20-pin headers (all GPIO broken out) |
+| LEDs | User LED on PC13, power LED |
+| Board size | 55 x 25 mm (Blue Pill form factor) |
+
+### Bill of Materials
+
+| Ref | Component | Package | Qty | Notes |
+|-----|-----------|---------|-----|-------|
+| U1 | STM32F103C8T6 | LQFP-48 | 1 | 0.5mm pitch |
+| U2 | AMS1117-3.3 | SOT-223 | 1 | 3.3V LDO |
+| Y1 | 8 MHz | HC49/SMD or 3.2x2.5mm | 1 | HSE crystal |
+| Y2 | 32.768 kHz | 2x1.2mm SMD | 1 | LSE crystal (RTC) |
+| C1, C2 | 20 pF | 0805 | 2 | HSE load caps |
+| C3, C4 | 6.8 pF | 0805 | 2 | LSE load caps |
+| C5-C9 | 100 nF | 0805 | 5 | Decoupling (each VDD pin) |
+| C10 | 4.7 µF | 0805 | 1 | Bulk decoupling |
+| C11, C12 | 10 µF | 0805 | 2 | LDO input/output caps |
+| C13 | 100 nF | 0805 | 1 | NRST filter cap |
+| C14 | 1 µF | 0805 | 1 | VDDA decoupling |
+| R1 | 1.5 kΩ | 0805 | 1 | USB D+ pull-up |
+| R2 | 10 kΩ | 0805 | 1 | NRST pull-up |
+| R3 | 100 kΩ | 0805 | 1 | Boot0 pull-down |
+| R4, R5 | 330 Ω | 0805 | 2 | LED current limiting |
+| D1 | Green LED | 0805 | 1 | Power indicator |
+| D2 | Blue/Green LED | 0805 | 1 | User LED (PC13) |
+| J1 | USB Mini-B | SMD | 1 | Power + data |
+| J2 | 1x4 pin header | 2.54mm | 1 | SWD debug |
+| J3, J4 | 1x20 pin header | 2.54mm | 2 | GPIO breakout |
+| JP1 | 1x3 pin header + jumper | 2.54mm | 1 | Boot0 select |
+| SW1 | Tactile switch | SMD 3x6mm | 1 | Reset |
+
+## STM32 Fundamentals
+
+<InArticleAd />
+
+
+<BionicText>
+The STM32F103C8T6 is an ARM Cortex-M3 microcontroller from STMicroelectronics. It runs at up to 72 MHz, has 64 KB of flash and 20 KB of SRAM, and includes peripherals like USB, I2C, SPI, UART, ADC, and timers. The "C8" in the part number tells you: C = 48 pins, 8 = 64 KB flash. The "T6" means LQFP package, industrial temperature range.
+</BionicText>
+
+### Clock Tree
+
+The STM32F103 has a flexible clock system:
+
+- **HSI** (High Speed Internal): 8 MHz RC oscillator, available without any external components. Less accurate than a crystal.
+- **HSE** (High Speed External): 4-16 MHz crystal input. We use 8 MHz, which the PLL multiplies by 9 to reach 72 MHz.
+- **LSE** (Low Speed External): 32.768 kHz crystal for the Real-Time Clock (RTC). This frequency divides evenly into 1 Hz for timekeeping.
+- **PLL**: Takes HSE or HSI as input and multiplies it. HSE 8 MHz x 9 = 72 MHz system clock.
+
+### Why STM32 Matters for PCB Designers
+
+The STM32 family is one of the most widely used MCU families in professional products. Designing a board around it teaches you skills that transfer directly to commercial work: fine-pitch LQFP soldering, multi-rail power design, USB signal integrity, and proper decoupling for high-speed digital ICs. The Blue Pill form factor is compact enough to be challenging but simple enough for a third PCB project.
+
+## Schematic Capture
+
+<InArticleAd />
+
+
+Create a new KiCad project named `stm32-blue-pill`.
+
+### Power Supply: USB 5V to 3.3V
+
+The STM32F103 runs on 3.3V. USB provides 5V, so we need a voltage regulator.
+
+<Steps>
+1. **Place the USB Mini-B connector.** Add `USB_B_Mini` from the Connector library. This provides VBUS (5V), D+, D-, and GND.
+
+2. **Place the AMS1117-3.3 LDO** (SOT-223). Connect VBUS to the LDO input through a 10 µF input capacitor (C11). Connect the LDO output to a `+3V3` power symbol through a 10 µF output capacitor (C12).
+
+3. **Add power symbols.** Place `+5V` on the USB VBUS net, `+3V3` on the LDO output, and `GND` throughout.
+
+4. **Wire the power path.** USB VBUS to +5V, through C11 to LDO input, LDO output through C12 to +3V3. Keep the power LED (D1 + R4) connected from +3V3 to GND so it lights when 3.3V is present.
+</Steps>
+
+### MCU and Decoupling
+
+The STM32F103C8T6 in LQFP-48 has multiple VDD and VSS pins. Every VDD pin needs its own 100 nF decoupling capacitor placed as close to the pin as possible.
+
+<Steps>
+1. **Place the STM32F103C8T6.** Add `STM32F103C8Tx` from the MCU_ST_STM32F1 library. The LQFP-48 variant has pins on all four sides.
+
+2. **Connect power pins.** Wire VDD (pins 24, 36, 48) and VDDA (pin 9) to `+3V3`. Wire VSS (pins 23, 35, 47) and VSSA (pin 8) to `GND`.
+
+3. **Add decoupling capacitors.** Place 100 nF caps C5, C6, C7 on VDD pins 24, 36, and 48 respectively. Place C14 (1 µF) on VDDA (pin 9) for the analog supply. Place C10 (4.7 µF) as bulk decoupling near the MCU.
+
+4. **VBAT pin.** Connect VBAT (pin 1) to `+3V3`. If you want battery backup for the RTC later, this is the pin you would connect to a coin cell instead.
+</Steps>
+
+### HSE Crystal (8 MHz)
+
+<Steps>
+1. **Place the 8 MHz crystal** between OSC_IN (pin 5) and OSC_OUT (pin 6).
+
+2. **Add load capacitors.** Place C1 (20 pF) from OSC_IN to GND and C2 (20 pF) from OSC_OUT to GND. The exact capacitor value depends on the crystal's specified load capacitance (typically 10-20 pF). For a crystal with 20 pF load capacitance, use 33 pF caps (accounting for ~5 pF PCB stray capacitance). For a 10 pF load crystal, 20 pF caps work well.
+
+3. **No series resistors needed.** The STM32F103 datasheet does not require external series resistors on the HSE pins for most crystals.
+</Steps>
+
+### LSE Crystal (32.768 kHz)
+
+<Steps>
+1. **Place the 32.768 kHz crystal** between OSC32_IN (pin 3) and OSC32_OUT (pin 4).
+
+2. **Add load capacitors.** Place C3 (6.8 pF) from OSC32_IN to GND and C4 (6.8 pF) from OSC32_OUT to GND. The 32.768 kHz crystal is sensitive; use the datasheet-recommended values.
+</Steps>
+
+:::tip[Crystal placement]
+Both crystals should be placed as close to the MCU as physically possible during PCB layout. Long traces between crystal pins and the MCU add parasitic capacitance and can prevent oscillation, especially for the 32.768 kHz LSE crystal.
+:::
+
+### Reset Circuit
+
+<Steps>
+1. **NRST pin** (pin 7). Connect a 100 nF capacitor (C13) from NRST to GND for noise filtering.
+
+2. **Pull-up resistor.** Connect R2 (10 kΩ) from NRST to +3V3.
+
+3. **Reset button.** Place an SMD tactile switch (SW1) from NRST to GND. Pressing it pulls NRST low and resets the MCU.
+</Steps>
+
+### USB Circuit
+
+The STM32F103 has a built-in USB full-speed (12 Mbps) peripheral. The USB data lines connect to PA11 (USB_DM / D-) and PA12 (USB_DP / D+).
+
+<Steps>
+1. **Wire USB data lines.** Connect the USB connector D- to PA11 and D+ to PA12.
+
+2. **D+ pull-up resistor.** Place R1 (1.5 kΩ) from PA12 (D+) to +3V3. This pull-up tells the USB host that a full-speed device is connected. Without it, the host will not detect the board.
+
+3. **No external ESD protection is strictly required** for a development board, but if you want to add it, place a USBLC6-2SC6 on the USB data lines.
+</Steps>
+
+:::caution[USB D+ pull-up is mandatory]
+The 1.5 kΩ pull-up on D+ is what signals the USB host to begin enumeration. If you forget this resistor, the board will power on but the computer will never see the USB device. Some STM32 variants have an internal pull-up that can be software-controlled, but the STM32F103 does not.
+:::
+
+### SWD Debug Header
+
+<Steps>
+1. **Place a 1x4 pin header** (J2) for SWD. The four pins are: SWDIO (PA13), SWCLK (PA14), GND, and 3V3.
+
+2. **Wire SWDIO** to PA13 (pin 34) and **SWCLK** to PA14 (pin 37). These pins default to SWD function after reset, so no remapping is needed.
+
+3. **Connect GND and 3V3** on the header. The 3V3 pin allows the debugger to sense the target voltage (and optionally power the board from the debugger).
+</Steps>
+
+### Boot Configuration
+
+The STM32F103 boot mode is selected by the Boot0 and Boot1 pins at reset:
+
+| Boot1 | Boot0 | Mode |
+|-------|-------|------|
+| X | 0 | Boot from flash (normal operation) |
+| 0 | 1 | Boot from system memory (USB/UART bootloader) |
+| 1 | 1 | Boot from SRAM |
+
+<Steps>
+1. **Boot0 jumper.** Place a 1x3 pin header (JP1) with the center pin connected to Boot0 (pin 44). Connect one outer pin to GND (normal boot) and the other to +3V3 (bootloader mode). A jumper cap selects the mode. Add R3 (100 kΩ) from Boot0 to GND as a default pull-down so the board boots from flash even without the jumper.
+
+2. **Boot1.** Tie Boot1 (pin 20, PB2) to GND with a direct connection. SRAM boot is rarely needed on a development board.
+</Steps>
+
+### User LED and GPIO Headers
+
+<Steps>
+1. **User LED.** Connect D2 (LED) and R5 (330 Ω) in series from PC13 (pin 2) to +3V3. Note: on the STM32, GPIO pins sink current when set low, so the LED lights when PC13 outputs low.
+
+2. **GPIO headers.** Place two 1x20 pin headers (J3 and J4) on opposite sides of the board. Map all remaining GPIO pins to these headers in a logical order, matching the Blue Pill pinout as closely as possible. Include +3V3, +5V, and GND pins on the headers.
+
+3. **Run ERC.** Fix all errors and warnings before proceeding.
+</Steps>
+
+### Assign Footprints
+
+Open **Tools > Assign Footprints** and set:
+
+| Symbol | Footprint |
+|--------|-----------|
+| STM32F103C8Tx | `Package_QFP:LQFP-48_7x7mm_P0.5mm` |
+| AMS1117-3.3 | `Package_TO_SOT_SMD:SOT-223-3_TabPin2` |
+| Crystal 8MHz | `Crystal:Crystal_SMD_3215-4Pin_3.2x1.5mm` |
+| Crystal 32.768kHz | `Crystal:Crystal_SMD_2012-2Pin_2.0x1.2mm` |
+| USB_B_Mini | `Connector_USB:USB_Mini-B_Lumberg_2486_01_Horizontal` |
+| C (0805) | `Capacitor_SMD:C_0805_2012Metric` |
+| R (0805) | `Resistor_SMD:R_0805_2012Metric` |
+| LED (0805) | `LED_SMD:LED_0805_2012Metric` |
+| SW_Push | `Button_Switch_SMD:SW_SPST_PTS810` |
+| Conn_01x04 (SWD) | `Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical` |
+| Conn_01x20 (GPIO) | `Connector_PinHeader_2.54mm:PinHeader_1x20_P2.54mm_Vertical` |
+| Conn_01x03 (Boot) | `Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical` |
+
+## PCB Layout
+
+<InArticleAd />
+
+
+### Board Setup
+
+<Steps>
+1. **Board outline.** On the Edge.Cuts layer, draw a 55 x 25 mm rectangle. This is the classic Blue Pill form factor, a narrow board designed to straddle a breadboard.
+
+2. **Layer setup.** This is a 2-layer board: F.Cu and B.Cu. Verify in **Board Setup > Board Stackup > Physical Stackup** that you have two copper layers with 1.6mm FR-4 substrate.
+
+3. **Design rules for JLCPCB.** Set the following minimums in **Board Setup > Design Rules**:
+   - Minimum track width: 0.15 mm
+   - Minimum clearance: 0.15 mm
+   - Minimum via drill: 0.3 mm
+   - Minimum via diameter: 0.6 mm
+   - Default track width: 0.25 mm (signal), 0.4 mm (power)
+</Steps>
+
+### Component Placement
+
+<Steps>
+1. **Update PCB from schematic** (F8). All components appear in a cluster.
+
+2. **USB connector** at the top edge, centered on the narrow side, plug facing outward.
+
+3. **LDO (U2)** close to the USB connector with C11 and C12 immediately adjacent to its input and output pins. The LDO thermal pad should connect to a ground pour for heat dissipation.
+
+4. **MCU (U1)** in the center of the board. Rotate it so that the USB data pins (PA11, PA12) face the USB connector, keeping those traces short.
+
+5. **8 MHz crystal (Y1)** within 5 mm of OSC_IN/OSC_OUT pins, with C1 and C2 right next to it.
+
+6. **32.768 kHz crystal (Y2)** within 3 mm of the OSC32 pins. This crystal is more sensitive to parasitic capacitance than the 8 MHz one. Place C3 and C4 adjacent.
+
+7. **Decoupling capacitors** (C5-C9) each within 2 mm of its corresponding VDD pin. This is not optional; moving them farther away degrades power integrity at 72 MHz.
+
+8. **GPIO headers** (J3, J4) along the long edges of the board, 2.54mm pitch, one row on each side. This is the signature Blue Pill layout.
+
+9. **SWD header** (J2) at the bottom edge of the board.
+
+10. **Boot0 jumper** (JP1) and **reset button** (SW1) on the top side, accessible but out of the way.
+</Steps>
+
+### Routing
+
+<Steps>
+1. **USB traces first.** Route D+ and D- from the USB connector to PA11/PA12. Keep these traces short (under 25 mm), matched in length (within 2 mm of each other), and on the same layer. Use 0.3 mm width for the data lines. Avoid vias on USB data traces.
+
+2. **Crystal traces.** Route HSE and LSE crystal traces as short as possible. Do not route any other signals between the crystal and the MCU pins. Keep digital signals away from the crystal area.
+
+3. **Power traces.** Route +3V3 and +5V using 0.4 mm traces. The main power path from USB through the LDO should be direct and short.
+
+4. **Decoupling capacitor traces.** Route each 100 nF cap directly to its VDD pin and to the nearest GND via. The loop area (VDD pin, trace to cap, cap, trace to GND via) should be as small as possible.
+
+5. **GPIO to headers.** Route the remaining GPIO pins to the edge headers. These are low-speed signals, so routing is straightforward. Use 0.25 mm traces.
+
+6. **Ground pour.** Add a GND copper zone on both F.Cu and B.Cu. Fill with `B` (Build All Zones). The ground pour on the back layer acts as a ground plane, improving signal integrity and providing a return path for high-frequency currents.
+
+7. **Add stitching vias.** Place GND vias around the board perimeter and between the two ground pours. This ties the front and back ground planes together. Add extra stitching vias near the USB connector and MCU.
+
+8. **Run DRC.** Zero errors, zero unconnected nets.
+</Steps>
+
+:::tip[JLCPCB design rules]
+JLCPCB's standard process supports 0.127 mm (5 mil) minimum trace/space, 0.3 mm minimum via drill, and 0.15 mm minimum annular ring. If you stay above these limits, your boards will pass their review without issues. The values we set (0.15 mm trace, 0.3 mm drill) include a small safety margin.
+:::
+
+## Manufacturing: First Fab House Order
+
+<InArticleAd />
+
+
+This is the key section of this lesson. You will generate all the files needed for professional PCB fabrication and assembly, then walk through the JLCPCB ordering process.
+
+### Generating Gerber Files
+
+Gerber files describe each layer of your PCB in a format that every fab house understands.
+
+<Steps>
+1. **Open the Plot dialog.** In the PCB Editor, go to **File > Plot**.
+
+2. **Select layers to plot:**
+   - F.Cu (front copper)
+   - B.Cu (back copper)
+   - F.Paste (front solder paste, for stencils)
+   - B.Paste (back solder paste)
+   - F.SilkS (front silkscreen)
+   - B.SilkS (back silkscreen)
+   - F.Mask (front solder mask)
+   - B.Mask (back solder mask)
+   - Edge.Cuts (board outline)
+
+3. **Plot settings:**
+   - Format: **Gerber**
+   - Output directory: `gerbers/`
+   - Check "Use Protel filename extensions" (JLCPCB expects this)
+   - Check "Subtract soldermask from silkscreen"
+   - Coordinate format: 4.6 (unit mm)
+
+4. **Click Plot.** KiCad generates one Gerber file per layer.
+
+5. **Generate drill files.** Click the **Generate Drill Files** button in the Plot dialog.
+   - Drill file format: **Excellon**
+   - Drill units: **Millimeters**
+   - Zeros format: **Decimal format**
+   - Check "PTH and NPTH in single file"
+   - Click **Generate Drill File**.
+
+6. **Verify in Gerber viewer.** Open **Inspect > Gerber Viewer** (or use an external viewer like gerbv). Load all Gerber files and the drill file. Inspect every layer. Check that the board outline is correct, pads are not missing, and the drill holes align with pad centers.
+</Steps>
+
+### Generating BOM for SMT Assembly
+
+JLCPCB's SMT assembly service requires a Bill of Materials in a specific CSV format.
+
+<Steps>
+1. **Open the BOM export.** In the Schematic Editor, go to **Tools > Edit Symbol Fields**. Make sure every component that JLCPCB will assemble has an LCSC part number in a custom field (add a field named "LCSC" if it does not exist).
+
+2. **Common LCSC part numbers** for this design:
+
+   | Component | LCSC Part Number |
+   |-----------|-----------------|
+   | STM32F103C8T6 | C8734 |
+   | AMS1117-3.3 | C6186 |
+   | 100 nF 0805 | C49678 |
+   | 10 µF 0805 | C15850 |
+   | 4.7 µF 0805 | C1779 |
+   | 1 µF 0805 | C28323 |
+   | 20 pF 0805 | C1790 |
+   | 6.8 pF 0805 | C1804 |
+   | 1.5 kΩ 0805 | C4310 |
+   | 10 kΩ 0805 | C17414 |
+   | 100 kΩ 0805 | C149504 |
+   | 330 Ω 0805 | C23138 |
+   | 8 MHz crystal | C16172 |
+   | 32.768 kHz crystal | C32346 |
+
+3. **Export the BOM.** Go to **File > Export > BOM** or use a BOM export plugin. The JLCPCB format needs these columns: `Comment`, `Designator`, `Footprint`, `LCSC Part Number`. You can format this manually in a spreadsheet or use a KiCad BOM plugin configured for JLCPCB.
+
+4. **Save as CSV.** Example rows:
+
+   ```csv
+   Comment,Designator,Footprint,LCSC
+   100nF,"C5,C6,C7,C8,C9,C13",C_0805_2012Metric,C49678
+   STM32F103C8T6,U1,LQFP-48_7x7mm_P0.5mm,C8734
+   AMS1117-3.3,U2,SOT-223-3_TabPin2,C6186
+   ```
+</Steps>
+
+### Generating Pick-and-Place (CPL) File
+
+The pick-and-place file (also called centroid or CPL file) tells the assembly machine where to place each component on the board.
+
+<Steps>
+1. **Export from KiCad.** In the PCB Editor, go to **File > Fabrication Outputs > Component Placement (.pos file)**.
+
+2. **Settings:**
+   - Format: **CSV**
+   - Units: **Millimeters**
+   - Files: **Single file for board**
+
+3. **Reformat for JLCPCB.** JLCPCB expects columns: `Designator`, `Mid X`, `Mid Y`, `Rotation`, `Layer`. KiCad's output uses `Ref`, `PosX`, `PosY`, `Rot`, `Side`. Rename the columns accordingly. You can do this in a text editor or spreadsheet.
+
+4. **Check rotation offsets.** JLCPCB and KiCad sometimes disagree on 0-degree rotation for certain components. The STM32 LQFP-48 and SOT-223 are common enough that JLCPCB handles them correctly, but verify after uploading.
+</Steps>
+
+### JLCPCB Order Walkthrough
+
+<Steps>
+1. **Create an account** at [jlcpcb.com](https://jlcpcb.com) if you do not have one.
+
+2. **Upload Gerbers.** Click "Order Now" on the homepage. Drag and drop your `gerbers/` folder (or a ZIP of the Gerber and drill files) onto the upload area. JLCPCB's viewer will show a preview of your board.
+
+3. **Set board parameters:**
+   - Layers: 2
+   - Dimensions: 55 x 25 mm (auto-detected)
+   - Quantity: 5 (the minimum; costs roughly $2-5)
+   - PCB thickness: 1.6 mm
+   - Surface finish: HASL (with lead) for cheapest, or LeadFree HASL
+   - Solder mask color: green (cheapest and fastest)
+   - Silkscreen: white
+   - Copper weight: 1 oz
+   - Remove order number: "Specify a location" (add a JLCJLCJLCJLC text on your silkscreen where you want it)
+
+4. **Enable SMT assembly.** Toggle "SMT Assembly" to ON.
+   - Assembly side: Top
+   - Tooling holes: "Added by JLCPCB"
+   - Confirm: check the assembly terms
+
+5. **Upload BOM and CPL files.** Click "Add BOM File" and "Add CPL File". Upload the CSV files you generated.
+
+6. **Review component matching.** JLCPCB shows each BOM line matched to a part from their inventory. Green check marks mean the part is in stock. Yellow warnings mean you need to confirm or substitute. Common issues:
+   - Extended parts (not in their basic library) cost an extra $3 per unique part
+   - Out-of-stock parts need substitution with a compatible alternative
+   - Confirm the footprint matches for each component
+
+7. **Review placement preview.** JLCPCB shows a 2D rendering with components placed on the board. Check that every component is correctly positioned and rotated. Fix any rotation issues by adjusting the rotation value in your CPL file and re-uploading.
+
+8. **Select shipping** and place the order. DHL and FedEx typically take 5-7 days. Standard shipping is cheaper but takes 2-3 weeks.
+</Steps>
+
+### Cost Expectations
+
+| Item | Approximate Cost (USD) |
+|------|----------------------|
+| 5x bare PCBs (2-layer, 55x25mm) | $2 - $5 |
+| SMT assembly setup fee | $8 |
+| Component cost (basic parts) | $3 - $5 |
+| Extended parts surcharge | $3 per unique extended part |
+| Shipping (standard) | $3 - $8 |
+| **Total (5 assembled boards)** | **$15 - $30** |
+
+:::tip[Save money on your first order]
+Use only "Basic" parts from JLCPCB's library to avoid the $3 extended part fee. The STM32F103C8T6 (C8734) is a basic part and so are most 0805 passives. Check part availability before finalizing your schematic.
+:::
+
+## Soldering Remaining Components
+
+<InArticleAd />
+
+
+JLCPCB's SMT assembly handles the fine-pitch MCU, passives, and other SMD parts. But through-hole components (pin headers, jumpers) are not assembled by the standard SMT service. You will solder these by hand.
+
+<Steps>
+1. **GPIO headers (J3, J4).** Insert the 1x20 pin headers from the bottom of the board so the long pins face downward (for breadboard use). Solder from the top side. Make sure the headers are straight before soldering all pins: tack one pin on each end first, check alignment, then solder the rest.
+
+2. **SWD header (J2).** Insert the 1x4 pin header and solder.
+
+3. **Boot0 jumper header (JP1).** Insert the 1x3 pin header and solder. Place a jumper cap connecting the center pin to the GND side for normal boot-from-flash operation.
+
+4. **Inspect all joints.** Check for cold joints, bridges, and missed pins. The factory-assembled SMD joints should already be perfect.
+</Steps>
+
+## First Power-On and Testing
+
+<InArticleAd />
+
+
+<Steps>
+1. **Visual inspection.** Before applying any power, inspect the entire board under magnification. Look for solder bridges on the LQFP-48 MCU pins and the USB connector pads. Check that all components are present and correctly oriented (LEDs, electrolytic caps, ICs).
+
+2. **Continuity check.** Use a multimeter in continuity mode. Verify there is no short between +3V3 and GND, or +5V and GND.
+
+3. **Power on via USB.** Plug the board into a USB port using a data-capable cable. The power LED (D1) should light up.
+
+4. **Measure voltages.** Check +5V at the USB VBUS net (should be 4.8-5.2V). Check +3V3 at the LDO output and at the MCU VDD pins (should be 3.25-3.35V). Check VDDA as well.
+
+5. **Test SWD connection.** Connect an ST-Link V2 (or compatible debugger) to the SWD header. Use `st-info --probe` (from stlink tools) or STM32CubeProgrammer to verify communication.
+
+   ```bash
+   st-info --probe
+   ```
+
+   You should see output indicating the STM32F103C8T6 with 64 KB flash.
+
+6. **Test the reset button.** While monitoring the SWD connection or an LED, press the reset button. The MCU should reset and restart.
+</Steps>
+
+## Firmware: USB CDC Serial
+
+<InArticleAd />
+
+
+Let's write a minimal program that makes the STM32 appear as a virtual serial port (USB CDC) and sends a message to the host computer.
+
+<Tabs>
+<TabItem label="STM32CubeIDE">
+
+The easiest way to get USB CDC running is with STM32CubeIDE and HAL:
+
+<Steps>
+1. **Create a new project** in STM32CubeIDE. Select STM32F103C8Tx as the target.
+
+2. **Configure clocks.** In the .ioc file, set HSE as the clock source, PLL multiplier to x9 (72 MHz), and enable the USB clock at 48 MHz (use the /1.5 prescaler from 72 MHz).
+
+3. **Enable USB.** Under Connectivity, enable USB. Under Middleware, enable USB_DEVICE with Class "Communication Device Class (CDC)".
+
+4. **Generate code.** Click "Generate Code".
+
+5. **Add your message.** Open `USB_DEVICE/App/usbd_cdc_if.c`. In the `CDC_Receive_FS` function (or in a periodic function in `main.c`), add:
+</Steps>
+
+```c
+/* In main.c, inside the while(1) loop */
+extern uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len);
+
+char msg[] = "Hello from STM32\r\n";
+CDC_Transmit_FS((uint8_t*)msg, strlen(msg));
+HAL_Delay(1000);
+```
+
+</TabItem>
+<TabItem label="Bare Metal (arm-none-eabi-gcc)">
+
+For those who prefer working without HAL, here is a minimal USB CDC implementation outline. A full bare-metal USB CDC stack is several hundred lines, so we reference the libopencm3 library which provides a clean USB API.
+
+<Steps>
+1. **Install libopencm3.** Clone the repository and build for STM32F1:
+
+   ```bash
+   git clone https://github.com/libopencm3/libopencm3.git
+   cd libopencm3
+   make TARGETS=stm32/f1
+   ```
+
+2. **Create main.c:**
+</Steps>
+
+```c
+/*
+ * main.c - USB CDC "Hello" using libopencm3
+ * STM32F103C8T6 @ 72 MHz (8 MHz HSE, PLL x9)
+ */
+
+#include <libopencm3/stm32/rcc.h>
+#include <libopencm3/stm32/gpio.h>
+#include <libopencm3/usb/usbd.h>
+#include <libopencm3/usb/cdc.h>
+#include <string.h>
+
+static usbd_device *usbd_dev;
+static char serial_buf[64];
+
+/* USB descriptors (CDC ACM) */
+static const struct usb_device_descriptor dev_descr = {
+    .bLength = USB_DT_DEVICE_SIZE,
+    .bDescriptorType = USB_DT_DEVICE,
+    .bcdUSB = 0x0200,
+    .bDeviceClass = USB_CLASS_CDC,
+    .bDeviceSubClass = 0,
+    .bDeviceProtocol = 0,
+    .bMaxPacketSize0 = 64,
+    .idVendor = 0x0483,   /* STMicroelectronics */
+    .idProduct = 0x5740,  /* Virtual COM Port */
+    .bcdDevice = 0x0100,
+    .iManufacturer = 1,
+    .iProduct = 2,
+    .iSerialNumber = 3,
+    .bNumConfigurations = 1,
+};
+
+/* (Full CDC descriptors omitted for brevity;
+ * see libopencm3 examples/stm32/f1/stm32-h103/usb_cdcacm
+ * for the complete descriptor set) */
+
+static void cdcacm_data_rx_cb(usbd_device *dev, uint8_t ep) {
+    (void)ep;
+    char buf[64];
+    int len = usbd_ep_read_packet(dev, 0x01, buf, 64);
+    /* Echo received data back */
+    if (len > 0) {
+        usbd_ep_write_packet(dev, 0x82, buf, len);
+    }
+}
+
+static void cdcacm_set_config(usbd_device *dev, uint16_t wValue) {
+    (void)wValue;
+    usbd_ep_setup(dev, 0x01, USB_ENDPOINT_ATTR_BULK, 64,
+                  cdcacm_data_rx_cb);
+    usbd_ep_setup(dev, 0x82, USB_ENDPOINT_ATTR_BULK, 64, NULL);
+    usbd_ep_setup(dev, 0x83, USB_ENDPOINT_ATTR_INTERRUPT, 16, NULL);
+}
+
+int main(void) {
+    /* Clock: 72 MHz from 8 MHz HSE */
+    rcc_clock_setup_pll(&rcc_hse_configs[RCC_CLOCK_HSE8_72MHZ]);
+
+    /* Enable GPIOA, GPIOC, USB clocks */
+    rcc_periph_clock_enable(RCC_GPIOA);
+    rcc_periph_clock_enable(RCC_GPIOC);
+
+    /* User LED on PC13 (active low) */
+    gpio_set_mode(GPIOC, GPIO_MODE_OUTPUT_2_MHZ,
+                  GPIO_CNF_OUTPUT_PUSHPULL, GPIO13);
+    gpio_clear(GPIOC, GPIO13);  /* LED on */
+
+    /* USB D+ (PA12) pull-up handled by hardware resistor R1 */
+    usbd_dev = usbd_init(&st_usbfs_v1_usb_driver,
+                         &dev_descr, /* config, strings... */
+                         NULL, 0,
+                         serial_buf, sizeof(serial_buf));
+    usbd_register_set_config_callback(usbd_dev, cdcacm_set_config);
+
+    /* Main loop: poll USB and send message periodically */
+    uint32_t count = 0;
+    while (1) {
+        usbd_poll(usbd_dev);
+        count++;
+        if (count > 800000) {
+            count = 0;
+            const char *msg = "Hello from STM32\r\n";
+            usbd_ep_write_packet(usbd_dev, 0x82,
+                                 msg, strlen(msg));
+        }
+    }
+}
+```
+
+**Compile and link:**
+
+```bash
+arm-none-eabi-gcc -mcpu=cortex-m3 -mthumb \
+    -I libopencm3/include \
+    -DSTM32F1 \
+    -Os -Wall \
+    -T stm32f103c8t6.ld \
+    -L libopencm3/lib \
+    -o firmware.elf main.c \
+    -lopencm3_stm32f1 -lnosys
+
+arm-none-eabi-objcopy -O binary firmware.elf firmware.bin
+```
+
+</TabItem>
+</Tabs>
+
+### Flashing via SWD
+
+Connect an ST-Link debugger to the SWD header and flash the firmware:
+
+<Tabs>
+<TabItem label="st-flash (stlink tools)">
+
+```bash
+st-flash write firmware.bin 0x08000000
+```
+
+</TabItem>
+<TabItem label="STM32CubeProgrammer CLI">
+
+```bash
+STM32_Programmer_CLI -c port=SWD -w firmware.bin 0x08000000 -v -rst
+```
+
+</TabItem>
+<TabItem label="OpenOCD">
+
+```bash
+openocd -f interface/stlink.cfg -f target/stm32f1x.cfg \
+    -c "program firmware.bin 0x08000000 verify reset exit"
+```
+
+</TabItem>
+</Tabs>
+
+After flashing, the board should enumerate as a USB CDC device. Open a serial terminal:
+
+<Tabs>
+<TabItem label="Linux">
+
+```bash
+# Find the device
+ls /dev/ttyACM*
+
+# Open serial terminal
+screen /dev/ttyACM0 115200
+```
+
+</TabItem>
+<TabItem label="Windows">
+
+Open Device Manager and find the new COM port under "Ports". Open PuTTY or your preferred terminal at 115200 baud on that COM port.
+
+</TabItem>
+<TabItem label="macOS">
+
+```bash
+ls /dev/tty.usbmodem*
+screen /dev/tty.usbmodem* 115200
+```
+
+</TabItem>
+</Tabs>
+
+You should see:
+
+```
+Hello from STM32
+Hello from STM32
+Hello from STM32
+```
+
+## What You Have Learned
+
+<InArticleAd />
+
+
+<Card title="Lesson 3 Complete" icon="approve-check">
+
+**KiCad skills:**
+- Designed a board around an LQFP-48 MCU with 0.5mm pin pitch
+- Managed multi-pin decoupling strategy (one cap per VDD pin)
+- Routed USB differential pairs with length matching
+- Set design rules to match a specific fab house (JLCPCB)
+
+**Electronics skills:**
+- STM32 clock tree configuration (HSE, LSE, PLL)
+- USB full-speed circuit with D+ pull-up resistor
+- SWD debug interface wiring
+- Boot mode configuration with jumper selection
+
+**Manufacturing skills:**
+- Generated Gerber files with correct layer selection and settings
+- Generated Excellon drill files
+- Created BOM with LCSC part numbers for JLCPCB assembly
+- Created pick-and-place (CPL) file with correct column format
+- Walked through the full JLCPCB ordering process
+- Understood cost structure for small-batch PCB fabrication
+
+**Firmware skills:**
+- USB CDC (virtual serial port) on STM32F103
+- Flashing firmware via SWD using st-flash, STM32CubeProgrammer, or OpenOCD
+- Verified board functionality with a working USB communication test
+</Card>
+
+:::tip[Next Lesson]
+In [Lesson 4: STM32 USB-C Four-Layer PCB](/education/pcb-design-kicad/stm32-usb-c-four-layer-pcb), you will redesign the development board with USB Type-C, a 4-layer stackup with dedicated power and ground planes, and improved signal integrity for higher-speed designs.
+:::
+
+<PcbDesignKicadComments />
+
+
+
+<InArticleAd />
+<TawkWidget />
+<Copyright />
