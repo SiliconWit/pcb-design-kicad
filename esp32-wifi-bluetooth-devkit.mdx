@@ -15,7 +15,7 @@ import Copyright from '../../../../components/Copyright.astro';
 import BionicText from '../../../../components/BionicText.astro';
 import TailwindWrapper from '../../../../components/TailwindWrapper.jsx';
 import { Tabs, TabItem } from '@astrojs/starlight/components';
-import { Card, CardGrid, Badge, Steps, LinkButton } from '@astrojs/starlight/components';
+import { Card, CardGrid, Badge, Steps, LinkButton, FileTree } from '@astrojs/starlight/components';
 
 <UniversalContentContributors 
   contributors={frontmatter.contributors}
@@ -76,13 +76,13 @@ A DevKitC-style development board built around the ESP32-WROOM-32 module. The bo
 <InArticleAd />
 
 
-<BionicText>
+
 
 The ESP32-WROOM-32 is a module, not a bare chip. Inside the metal shielding can, Espressif has already placed the ESP32 SoC, a 40 MHz crystal, 4 MB SPI flash, and all the required passives. The PCB antenna is etched onto the module's own PCB and extends beyond the metal can at one end. This is the part you need to keep clear of copper on your board.
 
 Using a module instead of the bare ESP32 SoC saves you significant design effort. The RF matching network between the SoC and the antenna is already tuned and tested. The module carries FCC, CE, and other wireless certifications, which means your product can reference the module's certification rather than going through the full (and expensive) RF certification process from scratch.
 
-</BionicText>
+
 
 ### Key Pins
 
@@ -114,8 +114,6 @@ Do not connect heavy loads to GPIO0, GPIO2, GPIO5, GPIO12, or GPIO15 without und
 
 This is what separates an ESP32 board that works reliably from one that drops WiFi connections or has poor range. The layout around the antenna area directly affects wireless performance.
 
-<BionicText>
-
 **Antenna keepout zone.** The WROOM-32 module has a PCB antenna that extends beyond the edge of the metal shielding can. No copper of any kind (no traces, no ground pour, no component pads) should exist underneath or within 2mm around the antenna section of the module. This means no copper on any layer in that region. Copper near the antenna detunes it, shifting its resonant frequency away from the 2.4 GHz band and reducing both transmit power and receive sensitivity.
 
 **Ground plane continuity.** While you must keep copper away from the antenna, you need a solid, unbroken ground plane under the rest of the module body (the shielded section). The ESP32's ground pins connect to this plane, and the RF return currents flow through it. Splits or gaps in the ground plane under the module degrade performance just as much as copper under the antenna.
@@ -123,8 +121,6 @@ This is what separates an ESP32 board that works reliably from one that drops Wi
 **Decoupling near power pins.** Place 100 nF capacitors as close as possible to the module's VDD pins. The ESP32 draws current in sharp bursts during WiFi transmission (peaks over 300 mA), and poor decoupling causes voltage droops that can crash the module or corrupt transmitted packets.
 
 **Keep digital signals away from the antenna.** Route all traces on the opposite side of the module from the antenna. High-speed switching signals (SPI clock, I2C, PWM) radiate noise that can interfere with the 2.4 GHz band if they run near the antenna area.
-
-</BionicText>
 
 ### Antenna Keepout Summary
 
@@ -145,33 +141,33 @@ Create a new KiCad project named `esp32-devkit`. Open the schematic editor and b
 ### Power Supply
 
 <Steps>
-1. **Place the USB Micro-B connector.** Add `USB_B_Micro` from the Connector library. This provides VBUS (5V), D+, D-, ID, and GND.
+1. Place the USB Micro-B connector. Add `USB_B_Micro` from the Connector library. This provides VBUS (5V), D+, D-, ID, and GND.
 
-2. **Add VBUS protection.** Connect VBUS through polyfuse F1 (500 mA) to a net labeled `VBUS_5V`. Place a 4.7 µF decoupling capacitor (C7) from VBUS_5V to GND near the connector.
+2. Add VBUS protection. Connect VBUS through polyfuse F1 (500 mA) to a net labeled `VBUS_5V`. Place a 4.7 µF decoupling capacitor (C7) from VBUS_5V to GND near the connector.
 
-3. **Place the AMS1117-3.3 LDO** (SOT-223). Connect VBUS_5V to the input pin through a 10 µF capacitor (C1). Connect the output to a `+3V3` power net through a 10 µF capacitor (C2). The AMS1117 also needs the input cap for stability.
+3. Place the AMS1117-3.3 LDO (SOT-223). Connect VBUS_5V to the input pin through a 10 µF capacitor (C1). Connect the output to a `+3V3` power net through a 10 µF capacitor (C2). The AMS1117 also needs the input cap for stability.
 
-4. **Add power flags.** Place `PWR_FLAG` symbols on +3V3 and GND if ERC reports undriven power nets.
+4. Add power flags. Place `PWR_FLAG` symbols on +3V3 and GND if ERC reports undriven power nets.
 </Steps>
 
 ### ESP32-WROOM-32 Module
 
 <Steps>
-1. **Place the ESP32 module.** Add `ESP32-WROOM-32` from the RF_Module library. The symbol shows all exposed pins of the module including the ground pad.
+1. Place the ESP32 module. Add `ESP32-WROOM-32` from the RF_Module library. The symbol shows all exposed pins of the module including the ground pad.
 
-2. **Connect all power pins.** Wire every VDD pin to `+3V3` and every GND pin (including the large ground pad) to `GND`. The WROOM-32 has multiple ground pins; all must be connected for proper RF return currents.
+2. Connect all power pins. Wire every VDD pin to `+3V3` and every GND pin (including the large ground pad) to `GND`. The WROOM-32 has multiple ground pins; all must be connected for proper RF return currents.
 
-3. **EN pin circuit.** Connect EN to +3V3 through a 10 kΩ pull-up resistor (R1). Place a 100 nF capacitor (C6) from EN to GND. This RC filter prevents noise from accidentally resetting the module. The EN pin also connects to the auto-reset circuit and the EN pushbutton (SW1).
+3. EN pin circuit. Connect EN to +3V3 through a 10 kΩ pull-up resistor (R1). Place a 100 nF capacitor (C6) from EN to GND. This RC filter prevents noise from accidentally resetting the module. The EN pin also connects to the auto-reset circuit and the EN pushbutton (SW1).
 
-4. **GPIO0 strapping.** Connect GPIO0 to +3V3 through a 10 kΩ pull-up resistor (R2). This ensures normal boot from flash. GPIO0 also connects to the auto-reset circuit and the BOOT pushbutton (SW2).
+4. GPIO0 strapping. Connect GPIO0 to +3V3 through a 10 kΩ pull-up resistor (R2). This ensures normal boot from flash. GPIO0 also connects to the auto-reset circuit and the BOOT pushbutton (SW2).
 
-5. **UART0 connections.** Connect TXD0 (GPIO1) to the CP2102N RXD pin. Connect RXD0 (GPIO3) to the CP2102N TXD pin. Note the crossover: the ESP32 TX goes to the bridge RX, and vice versa.
+5. UART0 connections. Connect TXD0 (GPIO1) to the CP2102N RXD pin. Connect RXD0 (GPIO3) to the CP2102N TXD pin. Note the crossover: the ESP32 TX goes to the bridge RX, and vice versa.
 
-6. **Decoupling capacitors.** Place 100 nF caps (C3, C4) on the VDD pins, as close to the module as possible in the schematic. Physical placement matters more, but schematic proximity helps during layout.
+6. Decoupling capacitors. Place 100 nF caps (C3, C4) on the VDD pins, as close to the module as possible in the schematic. Physical placement matters more, but schematic proximity helps during layout.
 
-7. **User LED.** Connect GPIO2 through a 330 ohm resistor (R5) to the anode of D1 (blue LED), cathode to GND. GPIO2 is safe to use as a user LED after boot completes.
+7. User LED. Connect GPIO2 through a 330 ohm resistor (R5) to the anode of D1 (blue LED), cathode to GND. GPIO2 is safe to use as a user LED after boot completes.
 
-8. **GPIO headers.** Place two 1x19 pin headers (J2, J3) and route all remaining GPIO pins to them. Follow the ESP32-DevKitC pinout order if you want compatibility with existing tutorials and shields.
+8. GPIO headers. Place two 1x19 pin headers (J2, J3) and route all remaining GPIO pins to them. Follow the ESP32-DevKitC pinout order if you want compatibility with existing tutorials and shields.
 </Steps>
 
 ### CP2102N USB-UART Bridge
@@ -192,11 +188,11 @@ Create a new KiCad project named `esp32-devkit`. Open the schematic editor and b
 
 This is the circuit that makes one-click programming possible. Without it, you would need to hold the BOOT button, press EN, release BOOT, and then click upload every time you flash new firmware.
 
-<BionicText>
+
 
 The auto-reset circuit uses two NPN transistors (or N-channel MOSFETs) to translate the CP2102N's DTR and RTS signals into the correct sequence on EN and GPIO0. When the programming tool begins an upload, it asserts DTR low and pulses RTS. The transistor cross-coupling converts this into: first pull GPIO0 low (enter bootloader mode), then pulse EN low (reset the chip). The ESP32 resets, samples GPIO0 low, and enters the bootloader. The programming tool then uploads the firmware over UART.
 
-</BionicText>
+
 
 <Steps>
 1. **Transistor Q1 (controls EN).** Connect the collector to the EN net. Connect the emitter to GND. Connect the base through a 10 kΩ resistor (R3) to the RTS signal from CP2102N.
@@ -295,7 +291,7 @@ On F.Cu, the ground pour fills around the component pads and traces. On B.Cu, th
 
 ### Trace Routing Tips
 
-<BionicText>
+
 
 Route the USB D+ and D- traces first, keeping them short and parallel between the Micro-B connector and the CP2102N. These are USB 2.0 Full-Speed (12 Mbps) signals, so keep them under 50mm total length and avoid sharp 90-degree bends.
 
@@ -305,7 +301,7 @@ Route power traces (VBUS to LDO input, LDO output to 3V3 net) with wider traces 
 
 Route all remaining GPIO connections to the pin headers last. Keep traces away from the antenna end of the board.
 
-</BionicText>
+
 
 ### Design Rules for JLCPCB 2-Layer
 
@@ -338,13 +334,13 @@ Set these minimum design rules in Board Setup > Design Rules > Constraints:
 
 The Gerber and drill file export process is the same as Lesson 3. Generate Gerbers for F.Cu, B.Cu, F.Mask, B.Mask, F.SilkS, B.SilkS, and Edge.Cuts, plus the drill file. Zip everything and upload to JLCPCB.
 
-<BionicText>
+
 
 For a 2-layer board this size (55x28mm), expect to pay $2 to $5 for 5 boards at JLCPCB. Select 1.6mm board thickness and HASL surface finish. If you plan to hand-solder the QFN-28 CP2102N, consider ENIG finish for flatter pads, though HASL works fine with careful technique. The ESP32 module itself is castellated (half-vias on the edges) and can be soldered with a standard iron by applying flux and tacking each pad.
 
 For a full walkthrough of the JLCPCB ordering process including BOM and pick-and-place file generation, refer back to [Lesson 3](/education/pcb-design-kicad/stm32-usb-development-board).
 
-</BionicText>
+
 
 ## Firmware: WiFi Scan
 

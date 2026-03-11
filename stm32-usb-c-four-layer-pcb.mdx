@@ -81,8 +81,6 @@ A compact USB-C development board built around the STM32F411CEU6 in a UFQFPN-48 
 
 In Lessons 1 through 3, you worked with 1-layer and 2-layer boards. Those are fine for low-speed microcontrollers with simple power needs. Once you add USB, faster clocks, or denser pin counts, 4-layer boards become the practical choice.
 
-<BionicText>
-
 **Dedicated ground plane.** Layer 2 is a solid, unbroken copper fill connected to GND. Every signal on Layer 1 has a continuous return path directly beneath it. This dramatically reduces electromagnetic interference (EMI) and crosstalk between traces.
 
 **Low-impedance power distribution.** Layer 3 carries 3.3V as a solid copper fill. Instead of routing power traces across the board, every component connects to the power plane through a short via. Voltage drops across the board become negligible.
@@ -92,8 +90,6 @@ In Lessons 1 through 3, you worked with 1-layer and 2-layer boards. Those are fi
 **More routing space.** With power and ground handled by inner layers, both outer layers are free for signal routing. You rarely need to sacrifice signal integrity by running a power trace between dense pin groups.
 
 **Impedance control.** USB 2.0 requires 90 ohm differential impedance. Achieving this requires a known, consistent distance between the signal trace and the reference plane. A 4-layer stackup gives you that controlled geometry: trace on Layer 1, ground plane on Layer 2, separated by a well-defined dielectric thickness.
-
-</BionicText>
 
 ### 2-Layer vs 4-Layer Comparison
 
@@ -112,11 +108,7 @@ In Lessons 1 through 3, you worked with 1-layer and 2-layer boards. Those are fi
 <InArticleAd />
 
 
-<BionicText>
-
 USB-C connectors have 24 pins, but for a USB 2.0 device you only use a small subset. The connector is reversible, so it duplicates the D+ and D- pins on both sides (pins A6/A7 and B6/B7). For a simple device, you can connect both pairs together or use just one pair with the other left unconnected (many budget designs do this and it works for USB 2.0).
-
-</BionicText>
 
 ### Key Signals
 
@@ -160,11 +152,7 @@ The standard 4-layer stackup for a 1.6mm board looks like this:
 | - | Prepreg | ~0.2mm | Dielectric between L3 and L4 |
 | 4 | B.Cu | 35 µm (1 oz) | Signal traces, some components |
 
-<BionicText>
-
 The critical dimension for impedance control is the prepreg thickness between Layer 1 and Layer 2 (approximately 0.2mm). This distance, combined with the trace width and the dielectric constant of FR4 (about 4.3), determines the characteristic impedance of your traces. For a 90 ohm differential pair, you typically need traces around 0.2mm wide with 0.15mm spacing, referenced to a ground plane 0.2mm below. Your fab house can provide the exact stackup dimensions; JLCPCB publishes their standard 4-layer stackup on their capabilities page.
-
-</BionicText>
 
 ### Setting Up 4 Layers in KiCad
 
@@ -279,8 +267,6 @@ Create a new KiCad project named `stm32f411-blackpill`. Open the schematic edito
 
 ### Component Placement
 
-<BionicText>
-
 Place the USB-C connector at one short edge of the board. Position the MCU in the center of the board with the exposed pad facing down (front side). Place the LDO and its capacitors between the USB connector and the MCU, keeping the power path short and direct.
 
 Place decoupling capacitors on the back side of the board, directly beneath their corresponding VDD pins on the MCU. This is a major advantage of a 4-layer board: the capacitor pad on B.Cu connects through a via to the GND plane (In1.Cu), and through another via to the +3V3 plane (In2.Cu). The current loop from the power plane, through the via, through the capacitor, and back through the GND via is extremely short.
@@ -288,8 +274,6 @@ Place decoupling capacitors on the back side of the board, directly beneath thei
 Place the HSE crystal within 5mm of the OSC_IN/OSC_OUT pins. Place the LSE crystal within 3mm of the OSC32 pins. Keep both crystal areas free of high-speed digital traces.
 
 Place the SWD header at the opposite short edge from USB, or along one of the long edges. Place GPIO headers along both long edges of the board.
-
-</BionicText>
 
 **Placement priority order:**
 
@@ -305,11 +289,7 @@ Place the SWD header at the opposite short edge from USB, or along one of the lo
 
 ### Via Stitching
 
-<BionicText>
-
 Via stitching means placing a regular pattern of vias connecting the GND zones on the outer layers to the inner GND plane. This serves multiple purposes: it reduces the impedance of the ground connection, it creates a Faraday cage effect that reduces EMI, and it provides thermal paths from the outer layers to the inner copper.
-
-</BionicText>
 
 <Steps>
 1. **Add via stitching around the board perimeter.** In KiCad, use Place > Via. Set the via net to GND. Place vias every 3 to 5mm around the board edge, inside the ground pour area. Stay at least 0.5mm from the board edge.
@@ -341,13 +321,9 @@ This is the most critical routing on the board. USB 2.0 Full-Speed requires 90 o
 
 ### Decoupling Capacitor Routing
 
-<BionicText>
-
 The goal is to minimize the current loop area between each VDD pin, its decoupling capacitor, and GND. With 4-layer boards, the technique is straightforward: place the capacitor on the back side directly under the VDD pin, connect the capacitor's power pad through a via to the +3V3 plane (In2.Cu), and connect its ground pad through a via to the GND plane (In1.Cu). The loop area becomes the distance between the two vias times the board thickness, which is extremely small.
 
 Do not route long traces from decoupling caps to VDD pins. The via-to-plane connection should be the primary path. If the capacitor cannot sit directly below the VDD pin, keep the trace as short as possible and still use vias to both inner planes.
-
-</BionicText>
 
 ### Design Rules for JLCPCB 4-Layer
 
@@ -385,11 +361,7 @@ The Gerber and drill file export process is the same as Lesson 3. This section c
 
 ### 4-Layer Options at JLCPCB
 
-<BionicText>
-
 When ordering, select "4" for the layer count. JLCPCB offers a standard 4-layer stackup (JLC04161H-7628) at a reasonable price premium. For a board this size (55x20mm), expect to pay roughly 2x to 3x the cost of an equivalent 2-layer order (approximately $8 to $15 for 5 boards versus $2 to $5 for 2-layer). The cost difference decreases as board size increases because the per-board price for 4-layer has a higher fixed component but similar per-area scaling.
-
-</BionicText>
 
 ### Impedance Control
 

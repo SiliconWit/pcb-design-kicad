@@ -15,7 +15,7 @@ import Copyright from '../../../../components/Copyright.astro';
 import BionicText from '../../../../components/BionicText.astro';
 import TailwindWrapper from '../../../../components/TailwindWrapper.jsx';
 import { Tabs, TabItem } from '@astrojs/starlight/components';
-import { Card, CardGrid, Badge, Steps, LinkButton } from '@astrojs/starlight/components';
+import { Card, CardGrid, Badge, Steps, LinkButton, FileTree } from '@astrojs/starlight/components';
 
 <UniversalContentContributors 
   contributors={frontmatter.contributors}
@@ -86,9 +86,7 @@ A compact wireless sensor node that monitors temperature, humidity, and barometr
 <InArticleAd />
 
 
-<BionicText>
 The power system is the heart of any battery-operated design. A poorly designed power path can drain a battery in days. This section covers each stage of the power chain, from charging through regulation, and explains how each component contributes to the total sleep current budget.
-</BionicText>
 
 ### Battery Charging: TP4056
 
@@ -113,9 +111,7 @@ Key connections:
 
 ### Solar and USB Input: Diode-OR
 
-<BionicText>
 The board accepts power from either USB-C or a solar panel. A diode-OR network using two Schottky diodes (SS14) connects both sources to the TP4056 VIN pin. Whichever source has the higher voltage forward-biases its diode and supplies current. The Schottky diodes have low forward voltage drop (~0.3V), minimizing power loss.
-</BionicText>
 
 The circuit is straightforward:
 
@@ -127,9 +123,7 @@ When both sources are present, USB typically wins because the solar panel open-c
 
 ### Battery Protection: DW01A + 8205A
 
-<BionicText>
 The DW01A is a lithium battery protection IC that monitors the cell voltage and current. It controls the 8205A, a dual N-channel MOSFET that sits in the battery's ground path. Together they protect against three failure modes.
-</BionicText>
 
 | Protection | Threshold | Action |
 |-----------|-----------|--------|
@@ -222,9 +216,7 @@ In this design, the TP4056 CHRG and STDBY LEDs only illuminate during charging, 
 
 ### Switchable Sensor Power
 
-<BionicText>
 The BME280 draws about 0.1 µA in sleep mode, which is negligible. However, for sensors that draw more idle current, or to ensure a clean sensor startup, you can switch the sensor's power rail using a P-channel MOSFET controlled by a GPIO.
-</BionicText>
 
 The circuit uses a SI2301 P-MOSFET:
 
@@ -243,9 +235,7 @@ Many ESP32 development boards include a CP2102 or CH340 USB-to-UART bridge chip.
 <InArticleAd />
 
 
-<BionicText>
 Open KiCad 9 and create a new project named "esp32c3-iot-sensor". The schematic has five functional blocks: USB-C input, battery charging and protection, voltage regulation, ESP32-C3 module, and the BME280 sensor with switchable power. Lay out each block in its own area of the schematic sheet.
-</BionicText>
 
 ### USB-C Connector
 
@@ -414,9 +404,7 @@ Place a JST-PH 2-pin connector (J2) for the battery. Connect the positive pin to
 <InArticleAd />
 
 
-<BionicText>
 The PCB layout for a battery-powered IoT node requires careful attention to three areas: antenna clearance for the ESP32-C3, thermal management for the TP4056 charger, and short power paths for low impedance. The target board size is 45 x 30 mm on a 2-layer PCB.
-</BionicText>
 
 ### Board Setup
 
@@ -517,9 +505,7 @@ This is manageable, but the copper area around the thermal pad and GND pins shou
 <InArticleAd />
 
 
-<BionicText>
 Export Gerbers and drill files from KiCad using File, then Plot. Select all copper layers (F.Cu, B.Cu), silkscreen layers, mask layers, and Edge.Cuts. Generate the drill file in Excellon format. Compress all files into a single ZIP.
-</BionicText>
 
 Upload to JLCPCB or your preferred fabricator. For this 2-layer board, standard settings work well:
 
@@ -539,9 +525,7 @@ Order a stencil for the top layer if you plan to reflow solder the QFN and LGA c
 <InArticleAd />
 
 
-<BionicText>
 The firmware demonstrates the core IoT sensor pattern: wake up, read sensors, transmit data, go back to sleep. This example uses the Arduino framework for the ESP32-C3, reads the BME280 over I2C, prints the data to USB serial, and enters deep sleep for 10 minutes.
-</BionicText>
 
 ### Arduino Setup
 
