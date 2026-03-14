@@ -27,6 +27,23 @@ import PcbDesignKicadComments from '../../../../components/pcb-design-kicad/PcbD
 
 In this first lesson, you will design a complete ATmega328P breakout board in KiCad 9 and produce files ready for home etching. The board is small (50x40mm), uses only through-hole components, and runs the same chip as an Arduino Uno. By the end you will have a working PCB with a blinking LED, built from scratch without any Arduino board or bootloader. #KiCad #ATmega328P #PCBDesign
 
+```text
+  Schematic to PCB Workflow
+  ──────────────────────────────────────────
+  1. Schematic     2. Netlist      3. PCB Layout
+  ┌──────────┐    ┌──────────┐    ┌──────────┐
+  │ Place    │    │ Export   │    │ Import   │
+  │ symbols, │───►│ netlist  │───►│ footprts,│
+  │ wire nets│    │ (.net)   │    │ route    │
+  └──────────┘    └──────────┘    │ traces   │
+                                  └────┬─────┘
+  4. DRC           5. Gerbers          │
+  ┌──────────┐    ┌──────────┐         │
+  │ Check    │◄───│ Generate │◄────────┘
+  │ errors   │    │ mfg files│
+  └──────────┘    └──────────┘
+```
+
 ## What We Are Building
 
 <Card title="ATmega328P Breakout Board" icon="star">
@@ -58,6 +75,30 @@ A minimal but complete microcontroller board: ATmega328P in DIP-28 package, 16 M
 | C5 | 10 µF electrolytic | Through-hole | 1 | Regulator input |
 | C6 | 10 µF electrolytic | Through-hole | 1 | Regulator output |
 | R1 | 10 kΩ | Through-hole | 1 | Reset pull-up |
+
+```text
+  ATmega328P Minimal Circuit
+  ──────────────────────────────────────────
+             VCC
+              │
+         ┌────┴────┐
+  RESET──┤R1 10k   │
+         └────┬────┘
+              │
+  ┌───────────┴────────────────────────┐
+  │         ATmega328P                  │
+  │                                     │
+  │  XTAL1 ──┤ Y1 16MHz ├── XTAL2     │
+  │           │C1  │  C2│              │
+  │           └─┤──┘──┤─┘              │
+  │            GND    GND              │
+  │                                     │
+  │  VCC ──┤C3 100nF├── GND           │
+  │  AVCC──┤C4 100nF├── GND           │
+  │                                     │
+  │  PB5 ──┤R2 330Ω├── LED ── GND     │
+  └─────────────────────────────────────┘
+```
 | R2 | 330 Ω | Through-hole | 1 | Power LED |
 | R3 | 330 Ω | Through-hole | 1 | User LED |
 | D1 | Green LED 3mm | Through-hole | 1 | Power indicator |

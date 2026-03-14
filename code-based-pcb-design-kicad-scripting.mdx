@@ -44,6 +44,32 @@ If you have taken the [Code-Based Mechanical Design](/education/code-based-mecha
 
 </Card>
 
+```text
+  SKiDL + KiCad pcbnew Pipeline
+  ──────────────────────────────────────────
+  circuit.py (SKiDL)
+    │
+    │  Define parts, connect nets
+    ▼
+  generate_netlist()
+    │
+    ▼
+  circuit.net (KiCad netlist)
+    │
+    ▼
+  pcbnew Python API
+    │  Load netlist
+    │  Place components at (x, y)
+    │  Set board outline
+    ▼
+  circuit.kicad_pcb
+    │
+    │  Route traces (interactive or
+    │  freerouter autorouter)
+    ▼
+  Run DRC ──► Export Gerbers
+```
+
 ## Tools Overview
 
 <InArticleAd />

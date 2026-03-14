@@ -27,6 +27,26 @@ import PcbDesignKicadComments from '../../../../components/pcb-design-kicad/PcbD
 
 This lesson transitions from through-hole to surface mount technology. You will design a sensor shield around the ATmega328P in a TQFP-32 package, add an I2C temperature/humidity sensor (SHT30) and an SPI ambient light sensor (VEML7700), and learn CNC milling as an alternative PCB fabrication method. #KiCad #SMD #SensorShield
 
+```text
+  SMD Component Size Comparison
+  ──────────────────────────────────────────
+  Through-hole resistor (axial):
+  ├────────── 6.5 mm ──────────┤
+
+  0805 SMD (2.0 x 1.25 mm):
+  ├──┤  ◄── fits on a pencil tip
+
+  0402 SMD (1.0 x 0.5 mm):
+  ├┤    ◄── barely visible
+
+  TQFP-32 (0.8mm pitch):
+  ┌──────────┐
+  │ ││││││││ │  32 pins total,
+  │          │  8 per side,
+  │ ││││││││ │  0.8 mm between
+  └──────────┘  pin centers
+```
+
 ## What We Are Building
 
 <Card title="ATmega328P Sensor Shield" icon="star">

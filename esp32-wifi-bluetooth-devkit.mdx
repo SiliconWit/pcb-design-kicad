@@ -27,6 +27,25 @@ import PcbDesignKicadComments from '../../../../components/pcb-design-kicad/PcbD
 
 This lesson introduces RF-aware PCB design through a practical project: an ESP32-WROOM-32 development board with WiFi and Bluetooth. You will design the schematic with a CP2102N USB-UART bridge and auto-reset circuit, then lay out a 2-layer PCB that respects the antenna keepout zone and maintains ground plane continuity for wireless performance. #KiCad #ESP32 #RFDesign
 
+```text
+  Antenna Keepout Zone (top view)
+  ──────────────────────────────────────────
+  ┌──────────────────────────────────────┐
+  │                          ┌─────────┐ │
+  │  Components OK here      │ ESP32   │ │
+  │  (USB, LDO, caps, etc.) │ WROOM   │ │
+  │                          │         │ │
+  │                          │ ┌─────┐ │ │
+  │                          │ │Ante-│ │ │
+  │          NO copper,      │ │nna  │ │ │
+  │          NO traces,      │ └─────┘ │ │
+  │          NO components ──┼─►KEEPOUT│ │
+  │          in this zone    └─────────┘ │
+  │                          ◄── 15mm ──►│
+  └──────────────────────────────────────┘
+  Board edge must not obstruct antenna.
+```
+
 ## What We Are Building
 
 <Card title="ESP32 WiFi/Bluetooth Development Kit" icon="star">
@@ -57,6 +76,23 @@ A DevKitC-style development board built around the ESP32-WROOM-32 module. The bo
 | J1 | USB Micro-B | SMD | 1 | Power and data |
 | J2, J3 | 1x19 pin header | 2.54mm | 2 | GPIO breakout |
 | Q1, Q2 | S8050 (or 2N7002) | SOT-23 | 2 | Auto-reset transistors |
+
+```text
+  Auto-Reset Circuit
+  ──────────────────────────────────────────
+  CP2102N                  ESP32
+  ─────────                ─────
+  DTR ──► Q1 (NPN) ─────► GPIO0 (BOOT)
+          │
+  RTS ──► Q2 (NPN) ─────► EN (RESET)
+
+  Programming sequence:
+  1. DTR=LOW, RTS=HIGH → EN=LOW (reset)
+  2. DTR=HIGH, RTS=LOW → GPIO0=LOW (boot)
+  3. DTR=HIGH, RTS=HIGH → EN=HIGH (run)
+  ESP32 enters bootloader automatically.
+  No manual button presses needed.
+```
 | C1, C2 | 10 µF | 0805 | 2 | LDO input/output |
 | C3, C4 | 100 nF | 0402 | 2 | ESP32 VDD decoupling |
 | C5 | 100 nF | 0402 | 1 | CP2102N decoupling |

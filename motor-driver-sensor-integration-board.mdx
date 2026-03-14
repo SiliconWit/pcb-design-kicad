@@ -27,6 +27,28 @@ import PcbDesignKicadComments from '../../../../components/pcb-design-kicad/PcbD
 
 This lesson brings together motor control and inertial sensing on a single PCB. You will design a "hat" board that plugs into any MCU dev board through pin headers, combining a DRV8833 dual H-bridge motor driver with an MPU6050 6-axis IMU. The challenge is routing high-current motor traces alongside sensitive analog signals without one corrupting the other. #KiCad #MotorDriver #IMU
 
+```text
+  Power and Signal Zone Separation
+  ──────────────────────────────────────────
+  ┌──────────────────────────────────────┐
+  │            MOTOR POWER ZONE          │
+  │  ┌─────────┐  VMOT ──► screw term   │
+  │  │ DRV8833 │  OUT1A ──► Motor 1     │
+  │  │ H-bridge│  OUT1B ──► Motor 1     │
+  │  └─────────┘  OUT2A ──► Motor 2     │
+  │  TVS diode    OUT2B ──► Motor 2     │
+  │  wide traces (1A+)                  │
+  ├─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┤
+  │  GND split / gap (separation zone)  │
+  ├─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┤
+  │           ANALOG/SENSOR ZONE         │
+  │  ┌─────────┐  SDA ──┐              │
+  │  │ MPU6050 │  SCL ──┤ thin traces  │
+  │  │  IMU    │         │ to MCU       │
+  │  └─────────┘  3.3V LDO (clean)     │
+  └──────────────────────────────────────┘
+```
+
 ## What We Are Building
 
 <Card title="Motor Driver and Sensor Integration Board" icon="star">

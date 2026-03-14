@@ -27,6 +27,31 @@ import PcbDesignKicadComments from '../../../../components/pcb-design-kicad/PcbD
 
 This lesson moves from 2-layer to 4-layer PCB design. You will design a Black Pill style development board around the STM32F411CEU6, a 100 MHz Cortex-M4 with floating point unit, paired with a USB-C connector for power and data. The 4-layer stackup gives you dedicated ground and power planes, which are essential for clean power delivery and impedance-controlled USB routing. #KiCad #STM32 #FourLayerPCB
 
+```text
+  4-Layer PCB Stackup
+  ──────────────────────────────────────────
+  Layer 1 (Top):     Signal + Components
+  ═══════════════════════════════════════
+  Prepreg            ~0.2 mm
+  ───────────────────────────────────────
+  Layer 2 (Inner 1): GND Plane (solid)
+  ═══════════════════════════════════════
+  Core               ~1.0 mm
+  ───────────────────────────────────────
+  Layer 3 (Inner 2): Power Plane (3.3V)
+  ═══════════════════════════════════════
+  Prepreg            ~0.2 mm
+  ───────────────────────────────────────
+  Layer 4 (Bottom):  Signal + Components
+  ═══════════════════════════════════════
+  Total: ~1.6 mm
+
+  GND plane directly below signal traces
+  provides low-impedance return path and
+  reduces EMI. Via stitching connects
+  top and bottom ground areas.
+```
+
 ## What We Are Building
 
 <Card title="STM32F411 Black Pill Style Board" icon="star">
@@ -55,6 +80,25 @@ A compact USB-C development board built around the STM32F411CEU6 in a UFQFPN-48 
 | Y1 | 25 MHz | 3.2x2.5mm SMD | 1 | HSE crystal, 10 pF load |
 | Y2 | 32.768 kHz | 2.0x1.2mm SMD | 1 | LSE crystal |
 | J1 | USB-C receptacle | USB-C 16-pin | 1 | Mid-mount or top-mount |
+
+```text
+  USB 2.0 Differential Pair Routing
+  ──────────────────────────────────────────
+  USB-C connector         STM32 USB pins
+       │                       │
+       │  D+  ════════════  PA12 (D+)
+       │  D-  ════════════  PA11 (D-)
+       │
+  ═══  = differential pair (matched length)
+
+  Rules:
+  - 90 ohm differential impedance
+  - Length match within 0.15 mm
+  - No vias in the pair
+  - Keep 3x trace width clearance
+    from other signals
+  - Ground plane unbroken beneath pair
+```
 | J2 | SWD header | 1x5 2.54mm | 1 | SWDIO, SWCLK, GND, 3V3, NRST |
 | J3, J4 | GPIO headers | 1x20 2.54mm | 2 | All I/O pins broken out |
 | C1, C2 | 10 pF | 0402 | 2 | HSE crystal load caps |

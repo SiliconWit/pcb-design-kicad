@@ -27,6 +27,28 @@ import PcbDesignKicadComments from '../../../../components/pcb-design-kicad/PcbD
 
 This lesson shifts from development boards to a purpose-built IoT sensor node. You will design a battery-powered board around the ESP32-C3-MINI-1, a compact RISC-V module with WiFi and BLE. The power system uses a TP4056 charging IC with solar panel input and lithium battery protection, feeding a low-quiescent-current LDO. Every design decision targets minimal sleep current so the board can run for months on a small battery. #KiCad #ESP32 #IoT
 
+```text
+  Power System Block Diagram
+  ──────────────────────────────────────────
+  Solar Panel ──►┐
+  (5V, 200mA)    │
+                 ▼
+  USB-C (5V) ──► TP4056 ──► DW01A + 8205A
+                 (charger)  (battery protection)
+                     │           │
+                     ▼           ▼
+                 Li-Po Battery (3.7V, 1000mAh)
+                     │
+                     ▼
+                 ME6211 LDO ──► 3.3V rail
+                 (Iq ~40uA)      │
+                                 ├──► ESP32-C3
+                                 └──► BME280
+
+  Deep sleep: ESP32 ~5uA + LDO ~40uA
+            = ~45uA total board current
+```
+
 ## What We Are Building
 
 <Card title="Battery-Powered ESP32-C3 IoT Sensor Node" icon="star">
@@ -58,6 +80,29 @@ A compact wireless sensor node that monitors temperature, humidity, and barometr
 | U4 | ME6211C33M5G | SOT-23-5 | 1 | 3.3V 500 mA LDO |
 | U5 | BME280 | LGA-8 (2.5 x 2.5 mm) | 1 | Environmental sensor |
 | Q1 | 8205A | TSSOP-8 | 1 | Dual N-MOSFET for battery protection |
+
+```text
+  Component Placement Zones (top view)
+  ──────────────────────────────────────────
+  ┌──────────────────────────────────────┐
+  │  ┌────────┐   ┌──────────────────┐  │
+  │  │ USB-C  │   │   ESP32-C3-MINI  │  │
+  │  │ + ESD  │   │   (WiFi/BLE)     │  │
+  │  └────────┘   │                  │  │
+  │               │    ┌─────┐       │  │
+  │  ┌────────┐   │    │Ante-│       │  │
+  │  │TP4056  │   │    │nna  │KEEPOUT│  │
+  │  │charger │   └────┴─────┴───────┘  │
+  │  └────────┘                         │
+  │  ┌────────┐   ┌──────┐             │
+  │  │DW01A + │   │BME280│ ◄─away from │
+  │  │8205A   │   │sensor│   heat      │
+  │  └────────┘   └──────┘   sources   │
+  │  ┌─────────────────┐               │
+  │  │ JST battery conn │               │
+  │  └─────────────────┘               │
+  └──────────────────────────────────────┘
+```
 | Q2 | SI2301 | SOT-23 | 1 | P-MOSFET for sensor power switching |
 | J1 | USB-C receptacle | USB-C 6-pin | 1 | Charging and programming |
 | J2 | JST-PH 2-pin | Through-hole | 1 | Battery connector |
