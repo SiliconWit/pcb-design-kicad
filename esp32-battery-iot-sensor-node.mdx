@@ -103,6 +103,9 @@ A compact wireless sensor node that monitors temperature, humidity, and barometr
   │  └─────────────────┘               │
   └──────────────────────────────────────┘
 ```
+
+| Reference | Value | Package | Qty | Function |
+|-----------|-------|---------|-----|----------|
 | Q2 | SI2301 | SOT-23 | 1 | P-MOSFET for sensor power switching |
 | J1 | USB-C receptacle | USB-C 6-pin | 1 | Charging and programming |
 | J2 | JST-PH 2-pin | Through-hole | 1 | Battery connector |
@@ -194,9 +197,7 @@ When the battery voltage drops below ~3.4V, the LDO enters dropout and the outpu
 
 ### Power Budget Calculation
 
-<BionicText>
 Understanding your total sleep current is critical for estimating battery life. Every component that remains powered during deep sleep contributes to the total.
-</BionicText>
 
 | Component | Sleep Current | Notes |
 |-----------|--------------|-------|
@@ -228,9 +229,7 @@ With a small solar panel providing even modest charging on sunny days, the syste
 <InArticleAd />
 
 
-<BionicText>
 Designing for low sleep current is not just a firmware problem. The PCB itself can waste microamps through pull-up resistors, indicator LEDs, and always-on peripherals. This section covers the hardware design choices that make deep sleep effective.
-</BionicText>
 
 ### Resistor Values Matter
 
