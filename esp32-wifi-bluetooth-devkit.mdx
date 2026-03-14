@@ -1,7 +1,7 @@
 ---
 title: "ESP32 WiFi/Bluetooth DevKit: RF-Aware PCB Design"
 description: "Design an ESP32-WROOM-32 development board with USB-UART bridge, antenna keepout zone, auto-reset programming circuit, and RF-aware PCB layout. Learn wireless PCB design considerations in KiCad 9"
-contributors: "sam-macharia"
+contributors: "sam-macharia,julius-righa"
 pubDate: 2026-03-05
 tags: ["kicad", "pcb-design", "esp32", "wifi", "bluetooth", "rf-design", "antenna", "usb-uart", "devkit"]
 excerpt: "Build an ESP32 development board with WiFi and Bluetooth. Learn how antenna keepout zones, ground plane continuity, and component placement affect wireless performance. Add a CP2102N USB-UART bridge with auto-reset for one-click programming."
@@ -76,13 +76,9 @@ A DevKitC-style development board built around the ESP32-WROOM-32 module. The bo
 <InArticleAd />
 
 
-
-
 The ESP32-WROOM-32 is a module, not a bare chip. Inside the metal shielding can, Espressif has already placed the ESP32 SoC, a 40 MHz crystal, 4 MB SPI flash, and all the required passives. The PCB antenna is etched onto the module's own PCB and extends beyond the metal can at one end. This is the part you need to keep clear of copper on your board.
 
 Using a module instead of the bare ESP32 SoC saves you significant design effort. The RF matching network between the SoC and the antenna is already tuned and tested. The module carries FCC, CE, and other wireless certifications, which means your product can reference the module's certification rather than going through the full (and expensive) RF certification process from scratch.
-
-
 
 ### Key Pins
 
@@ -188,11 +184,7 @@ Create a new KiCad project named `esp32-devkit`. Open the schematic editor and b
 
 This is the circuit that makes one-click programming possible. Without it, you would need to hold the BOOT button, press EN, release BOOT, and then click upload every time you flash new firmware.
 
-
-
 The auto-reset circuit uses two NPN transistors (or N-channel MOSFETs) to translate the CP2102N's DTR and RTS signals into the correct sequence on EN and GPIO0. When the programming tool begins an upload, it asserts DTR low and pulses RTS. The transistor cross-coupling converts this into: first pull GPIO0 low (enter bootloader mode), then pulse EN low (reset the chip). The ESP32 resets, samples GPIO0 low, and enters the bootloader. The programming tool then uploads the firmware over UART.
-
-
 
 <Steps>
 1. **Transistor Q1 (controls EN).** Connect the collector to the EN net. Connect the emitter to GND. Connect the base through a 10 kΩ resistor (R3) to the RTS signal from CP2102N.
@@ -291,8 +283,6 @@ On F.Cu, the ground pour fills around the component pads and traces. On B.Cu, th
 
 ### Trace Routing Tips
 
-
-
 Route the USB D+ and D- traces first, keeping them short and parallel between the Micro-B connector and the CP2102N. These are USB 2.0 Full-Speed (12 Mbps) signals, so keep them under 50mm total length and avoid sharp 90-degree bends.
 
 Route the UART lines (TXD, RXD) between the CP2102N and the ESP32 module next. These run at up to 921600 baud during programming, which is slow enough that trace impedance is not critical. Keep them away from the antenna area.
@@ -300,8 +290,6 @@ Route the UART lines (TXD, RXD) between the CP2102N and the ESP32 module next. T
 Route power traces (VBUS to LDO input, LDO output to 3V3 net) with wider traces (0.5mm or more) to handle the ESP32's peak current draw during WiFi transmission (up to 500 mA from the 3.3V rail).
 
 Route all remaining GPIO connections to the pin headers last. Keep traces away from the antenna end of the board.
-
-
 
 ### Design Rules for JLCPCB 2-Layer
 
@@ -334,13 +322,9 @@ Set these minimum design rules in Board Setup > Design Rules > Constraints:
 
 The Gerber and drill file export process is the same as Lesson 3. Generate Gerbers for F.Cu, B.Cu, F.Mask, B.Mask, F.SilkS, B.SilkS, and Edge.Cuts, plus the drill file. Zip everything and upload to JLCPCB.
 
-
-
 For a 2-layer board this size (55x28mm), expect to pay $2 to $5 for 5 boards at JLCPCB. Select 1.6mm board thickness and HASL surface finish. If you plan to hand-solder the QFN-28 CP2102N, consider ENIG finish for flatter pads, though HASL works fine with careful technique. The ESP32 module itself is castellated (half-vias on the edges) and can be soldered with a standard iron by applying flux and tacking each pad.
 
 For a full walkthrough of the JLCPCB ordering process including BOM and pick-and-place file generation, refer back to [Lesson 3](/education/pcb-design-kicad/stm32-usb-development-board).
-
-
 
 ## Firmware: WiFi Scan
 

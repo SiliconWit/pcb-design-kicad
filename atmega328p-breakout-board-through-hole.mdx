@@ -1,7 +1,7 @@
 ---
 title: "ATmega328P Breakout Board: Through-Hole PCB from Scratch"
 description: "Design your first PCB in KiCad 9: a minimal ATmega328P breakout board with ISP header, crystal oscillator, power LED, and pin headers. Covers project setup, schematic capture, PCB layout, home etching, and blink firmware"
-contributors: "sam-macharia"
+contributors: "sam-macharia,julius-righa"
 pubDate: 2026-03-05
 tags: ["kicad", "pcb-design", "atmega328p", "through-hole", "home-etching", "avr", "embedded-systems", "breakout-board"]
 excerpt: "Build a complete ATmega328P breakout board from scratch in KiCad 9. Walk through every step from creating a new project to exporting manufacturing files for home etching. Flash a blink LED firmware over ISP to verify the board works."
@@ -15,7 +15,7 @@ import Copyright from '../../../../components/Copyright.astro';
 import BionicText from '../../../../components/BionicText.astro';
 import TailwindWrapper from '../../../../components/TailwindWrapper.jsx';
 import { Tabs, TabItem } from '@astrojs/starlight/components';
-import { Card, CardGrid, Badge, Steps, LinkButton } from '@astrojs/starlight/components';
+import { Card, CardGrid, Badge, Steps, LinkButton, FileTree } from '@astrojs/starlight/components';
 
 <UniversalContentContributors 
   contributors={frontmatter.contributors}

@@ -1,7 +1,7 @@
 ---
 title: "STM32 USB Development Board: Blue Pill Style PCB"
 description: "Design a Blue Pill style STM32F103C8T6 development board with USB, SWD debug header, crystal oscillator, and 3.3V regulation. First professional fab house order with Gerber, BOM, and pick-and-place file generation for JLCPCB"
-contributors: "sam-macharia"
+contributors: "sam-macharia,julius-righa"
 pubDate: 2026-03-05
 tags: ["kicad", "pcb-design", "stm32", "usb", "swd", "arm-cortex-m3", "jlcpcb", "gerber", "development-board"]
 excerpt: "Design a complete STM32F103C8T6 development board in KiCad 9 with USB for programming and serial communication, SWD debug header, 8 MHz and 32.768 kHz crystals, 3.3V LDO regulation, and all GPIO broken out. Generate professional manufacturing files and place your first JLCPCB order."
@@ -15,7 +15,7 @@ import Copyright from '../../../../components/Copyright.astro';
 import BionicText from '../../../../components/BionicText.astro';
 import TailwindWrapper from '../../../../components/TailwindWrapper.jsx';
 import { Tabs, TabItem } from '@astrojs/starlight/components';
-import { Card, CardGrid, Badge, Steps, LinkButton } from '@astrojs/starlight/components';
+import { Card, CardGrid, Badge, Steps, LinkButton, FileTree } from '@astrojs/starlight/components';
 
 <UniversalContentContributors 
   contributors={frontmatter.contributors}

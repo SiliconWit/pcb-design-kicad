@@ -1,7 +1,7 @@
 ---
 title: "STM32 USB-C Four-Layer PCB: Black Pill Style Board"
 description: "Design a Black Pill style STM32F411CEU6 board with USB-C connector, LDO regulation, and 4-layer stackup. Learn power and ground plane design, via stitching, impedance-aware USB routing, and advanced KiCad 9 layout techniques"
-contributors: "sam-macharia"
+contributors: "sam-macharia,julius-righa"
 pubDate: 2026-03-05
 tags: ["kicad", "pcb-design", "stm32f411", "usb-c", "four-layer", "impedance", "via-stitching", "black-pill"]
 excerpt: "Step up to a 4-layer PCB with the STM32F411CEU6 in UFQFPN-48 package. Design dedicated power and ground planes, implement USB-C with proper CC resistors, and learn impedance-controlled routing for USB 2.0 full-speed differential pairs."
@@ -15,7 +15,7 @@ import Copyright from '../../../../components/Copyright.astro';
 import BionicText from '../../../../components/BionicText.astro';
 import TailwindWrapper from '../../../../components/TailwindWrapper.jsx';
 import { Tabs, TabItem } from '@astrojs/starlight/components';
-import { Card, CardGrid, Badge, Steps, LinkButton } from '@astrojs/starlight/components';
+import { Card, CardGrid, Badge, Steps, LinkButton, FileTree } from '@astrojs/starlight/components';
 
 <UniversalContentContributors 
   contributors={frontmatter.contributors}
