@@ -12,6 +12,8 @@ sidebar:
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Contributors Welcome](https://img.shields.io/badge/contributors-welcome-orange)
 
+**Read this course at:** [https://siliconwit.com/education/pcb-design-kicad/](https://siliconwit.com/education/pcb-design-kicad/)
+
 A hands-on course covering PCB design and manufacturing using KiCad 9. Nine lessons produce nine complete boards, from a through-hole ATmega328P breakout to multi-layer STM32 and ESP32 boards with USB-C, WiFi, battery management, motor control, and code-based PCB generation via KiCad Python scripting.
 
 ## Lessons
