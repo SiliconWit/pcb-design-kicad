@@ -103,11 +103,9 @@ A compact expansion board that stacks onto any MCU dev board via 2x10 pin header
 <InArticleAd />
 
 
-
 When motor power and sensitive sensors share a board, noise coupling is the primary enemy. Motors generate large current transients, voltage spikes from inductive kickback, and electromagnetic interference from commutation. The MPU6050, meanwhile, measures acceleration in fractions of a g using tiny capacitive elements. Without careful layout, motor noise corrupts IMU readings and makes the data useless.
 
 The solution is to treat the board as two separate domains that happen to share a PCB. The motor domain handles high current, tolerates noise, and needs wide traces. The signal domain handles millivolt-level analog signals, I2C communication, and needs clean power with minimal noise. These domains share a ground connection, but only at a single, carefully chosen point.
-
 
 **Key principles for this design:**
 
@@ -318,9 +316,7 @@ Organize the schematic into clearly labeled sections. KiCad 9 supports hierarchi
 <InArticleAd />
 
 
-
 The PCB layout is where mixed-signal design principles turn into copper. This is a 2-layer board, so you do not have dedicated inner planes. Instead, you rely on careful copper pours, physical separation, and trace width management to keep motor noise away from the IMU.
-
 
 ### Board Outline and Zones
 

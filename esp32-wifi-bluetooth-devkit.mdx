@@ -289,11 +289,9 @@ The auto-reset circuit topology varies slightly between different ESP32 board de
 
 ### Ground Pour and Plane Strategy
 
-
 This is a 2-layer board, so you do not have dedicated inner planes. Instead, use copper pours on both F.Cu and B.Cu assigned to GND. The key rule: the ground pour must be solid and unbroken under the shielded body of the ESP32 module, but completely absent under the antenna area.
 
 On F.Cu, the ground pour fills around the component pads and traces. On B.Cu, the pour should be as continuous as possible, especially under the ESP32 module. Connect the front and back ground pours with via stitching every 3 to 5mm. This creates a pseudo-ground-plane that improves RF performance on a 2-layer board.
-
 
 <Steps>
 1. **Create GND zone on F.Cu.** Add a filled zone covering the entire board, assigned to the GND net. Set zone priority to 0.
