@@ -25,7 +25,7 @@ import { Card, CardGrid, Badge, Steps, LinkButton, FileTree } from '@astrojs/sta
 
 import PcbDesignKicadComments from '../../../../components/pcb-design-kicad/PcbDesignKicadComments.astro';
 
-This lesson transitions from through-hole to surface mount technology. You will design a sensor shield around the ATmega328P in a TQFP-32 package, add an I2C temperature/humidity sensor (SHT30) and an SPI ambient light sensor (VEML7700), and learn CNC milling as an alternative PCB fabrication method. #KiCad #SMD #SensorShield
+Through-hole components are easy to solder, but they are large, limit how dense your layout can be, and many modern sensors simply do not come in through-hole packages. If you want to use the latest MEMS sensors, IMUs, or compact MCU variants, you need to work with SMD. Surface mount parts can be ten times smaller, which means shorter traces, less parasitic capacitance, and boards that fit in tight enclosures. In this lesson you will design a sensor shield around the ATmega328P in a TQFP-32 package, add an I2C temperature/humidity sensor (SHT30) and an SPI ambient light sensor (VEML7700), and learn CNC milling as an alternative to chemical etching. #KiCad #SMD #SensorShield
 
 ```text
   SMD Component Size Comparison

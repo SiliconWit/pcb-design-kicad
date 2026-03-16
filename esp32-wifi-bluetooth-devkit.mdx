@@ -25,7 +25,7 @@ import { Card, CardGrid, Badge, Steps, LinkButton, FileTree } from '@astrojs/sta
 
 import PcbDesignKicadComments from '../../../../components/pcb-design-kicad/PcbDesignKicadComments.astro';
 
-This lesson introduces RF-aware PCB design through a practical project: an ESP32-WROOM-32 development board with WiFi and Bluetooth. You will design the schematic with a CP2102N USB-UART bridge and auto-reset circuit, then lay out a 2-layer PCB that respects the antenna keepout zone and maintains ground plane continuity for wireless performance. #KiCad #ESP32 #RFDesign
+Place a ground pour trace under the ESP32's antenna and your WiFi range drops from 30 meters to 3. Route a high-speed signal through the antenna keepout zone and the module may fail to connect at all. Wireless PCB design has rules that do not exist for purely digital boards, and violating them produces failures that look like firmware bugs because the code is correct but the radio cannot hear the access point. In this lesson you will design an ESP32-WROOM-32 development board with a CP2102N USB-UART bridge and auto-reset circuit, then lay out a 2-layer PCB that respects the antenna keepout zone and maintains ground plane continuity for reliable wireless performance. #KiCad #ESP32 #RFDesign
 
 ```text
   Antenna Keepout Zone (top view)

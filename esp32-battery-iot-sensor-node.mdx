@@ -25,7 +25,7 @@ import { Card, CardGrid, Badge, Steps, LinkButton, FileTree } from '@astrojs/sta
 
 import PcbDesignKicadComments from '../../../../components/pcb-design-kicad/PcbDesignKicadComments.astro';
 
-This lesson shifts from development boards to a purpose-built IoT sensor node. You will design a battery-powered board around the ESP32-C3-MINI-1, a compact RISC-V module with WiFi and BLE. The power system uses a TP4056 charging IC with solar panel input and lithium battery protection, feeding a low-quiescent-current LDO. Every design decision targets minimal sleep current so the board can run for months on a small battery. #KiCad #ESP32 #IoT
+A development board running an ESP32 draws 40 to 80 mA even in idle, which drains a small lithium cell in a day or two. For a sensor node deployed outdoors or in a hard-to-reach location, you need a purpose-built board where every component is chosen for minimal quiescent current: a low-Iq LDO instead of a dev board's wasteful regulator, a charging IC that can top up from a solar panel, and a layout that keeps leakage paths short. In this lesson you will design that board around the ESP32-C3-MINI-1, with TP4056 lithium charging, solar input, battery protection, and a power budget targeting months of operation on a single cell. #KiCad #ESP32 #IoT
 
 ```text
   Power System Block Diagram
