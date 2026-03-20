@@ -44,15 +44,85 @@ pcb-design-kicad/
 ├── rp2040-usb-c-development-board.mdx
 ├── motor-driver-sensor-integration-board.mdx
 ├── code-based-pcb-design-kicad-scripting.mdx
+├── schematics/
+│   └── (schematic PDFs go here)
 └── README.md
 ```
 
 ## How to Contribute
 
+All commands below work on Linux, macOS, and Windows (using Git Bash, PowerShell, or Command Prompt with Git installed).
+
+### For Team Members (with push access)
+
+**First time setup (clone the repo once):**
+
+```bash
+git clone https://github.com/SiliconWit/pcb-design-kicad.git
+cd pcb-design-kicad
+```
+
+**Every time you start working:**
+
+```bash
+git pull origin main
+```
+
+Always pull before making changes. This avoids conflicts with other contributors.
+
+**After making your changes:**
+
+```bash
+git add .
+git commit -m "Brief description of what you changed"
+git push origin main
+```
+
+**Adding schematic PDFs:**
+
+Place your PDF files in the `schematics/` folder, then:
+
+```bash
+git add schematics/
+git commit -m "Add schematic for lesson name"
+git push origin main
+```
+
+**If you get a push error** (someone pushed before you):
+
+```bash
+git pull origin main
+```
+
+Git will merge the changes automatically in most cases. If there is a conflict, Git will mark the conflicting lines in the file. Open the file, choose which version to keep, then:
+
+```bash
+git add .
+git commit -m "Resolve merge conflict"
+git push origin main
+```
+
+**Tips to avoid conflicts:**
+
+- Always `git pull origin main` before you start working
+- Push your changes as soon as you are done, do not hold onto uncommitted work for long
+- Coordinate with other contributors so two people are not editing the same file at the same time
+
+### For External Contributors (without push access)
+
 1. Fork the repository: [SiliconWit/pcb-design-kicad](https://github.com/SiliconWit/pcb-design-kicad)
-2. Create a feature branch: `git checkout -b feature/your-topic`
-3. Make your changes and commit with a clear message
-4. Push to your fork and open a Pull Request against `main`
+2. Clone your fork:
+   ```bash
+   git clone https://github.com/YOUR-USERNAME/pcb-design-kicad.git
+   cd pcb-design-kicad
+   ```
+3. Make your changes and commit:
+   ```bash
+   git add .
+   git commit -m "Brief description of what you changed"
+   git push origin main
+   ```
+4. Open a Pull Request against `main` on the original repository
 5. Describe what you changed and why in the PR description
 
 ## Content Standards
@@ -70,10 +140,11 @@ pcb-design-kicad/
 - Keep paragraphs concise and focused on practical application
 - Include KiCad Python scripting examples where relevant
 - All schematics and layouts must target KiCad 9
+- Schematic PDFs go in the `schematics/` folder
 
 ## Local Development
 
-Clone the main site repository and initialize submodules:
+To preview the full site locally, clone the main site repository and initialize submodules:
 
 ```bash
 git clone --recurse-submodules <main-repo-url>
