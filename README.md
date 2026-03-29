@@ -45,7 +45,14 @@ pcb-design-kicad/
 ├── motor-driver-sensor-integration-board.mdx
 ├── code-based-pcb-design-kicad-scripting.mdx
 ├── schematics/
-│   └── (schematic PDFs go here)
+│   ├── atmega328p-breakout-board-through-hole.pdf
+│   ├── atmega328p-sensor-shield-smd-components.pdf
+│   ├── stm32-usb-development-board.pdf
+│   ├── stm32-usb-c-four-layer-pcb.pdf
+│   ├── esp32-wifi-bluetooth-devkit.pdf
+│   ├── esp32-battery-iot-sensor-node.pdf
+│   ├── rp2040-usb-c-development-board.pdf
+│   └── motor-driver-sensor-integration-board.pdf
 └── README.md
 ```
 
