@@ -275,6 +275,8 @@ A 100 uF electrolytic capacitor on the motor power input serves as a local energ
 
 Organize the schematic into clearly labeled sections. KiCad 9 supports hierarchical sheets, but for a board this simple, a single sheet with grouped sections works well.
 
+<LinkButton href="https://github.com/SiliconWit/pcb-design-kicad/blob/main/schematics/motor-driver-sensor-integration-board.pdf" target="_blank" variant="secondary" icon="document">Download Schematic PDF</LinkButton>
+
 <Steps>
 
 1. Motor driver section. Place the DRV8833 symbol at the center-left of the sheet. Connect VM to the protected power rail through the bulk capacitor. Connect VCC to 5V from the MCU header. Add 100 nF decoupling caps on both VM and VCC, placed close to the symbol. Route AIN1, AIN2, BIN1, BIN2 to the MCU header pins labeled PWM1 through PWM4. Route AOUT1/AOUT2 to screw terminal J2 and BOUT1/BOUT2 to screw terminal J3.
