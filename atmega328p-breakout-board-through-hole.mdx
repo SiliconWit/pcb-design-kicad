@@ -56,7 +56,7 @@ A minimal but complete microcontroller board: ATmega328P in DIP-28 package, 16 M
 |-----------|-------|
 | MCU | ATmega328P-PU (DIP-28) |
 | Clock | 16 MHz crystal + 22 pF load capacitors |
-| Power | 7-12V input via barrel jack, 5V LDO (AMS1117-5.0) |
+| Power | 7-12V input via barrel jack, 5V regulator (LM7805 in TO-220) |
 | Programming | 6-pin ISP header (for USBasp or Arduino-as-ISP) |
 | I/O | 2x 14-pin headers exposing all digital/analog pins |
 | LEDs | Power (green), User (red, on PB5/D13) |
@@ -68,7 +68,7 @@ A minimal but complete microcontroller board: ATmega328P in DIP-28 package, 16 M
 | Ref | Component | Package | Quantity | Notes |
 |-----|-----------|---------|----------|-------|
 | U1 | ATmega328P-PU | DIP-28 | 1 | Use a socket for easy removal |
-| U2 | AMS1117-5.0 | SOT-223 (or TO-220) | 1 | 5V LDO regulator |
+| U2 | LM7805 | TO-220 | 1 | 5V linear regulator |
 | Y1 | 16 MHz crystal | HC-49S | 1 | |
 | C1, C2 | 22 pF ceramic | Through-hole | 2 | Crystal load capacitors |
 | C3, C4 | 100 nF ceramic | Through-hole | 2 | Decoupling |
@@ -174,7 +174,7 @@ The power section takes 7-12V from the barrel jack, regulates it to 5V, and prov
 <Steps>
 1. **Place the barrel jack.** Press `A` (Add Symbol), search for `Barrel_Jack_Switch`, and place it on the left side of the sheet. The barrel jack has three pins: Tip (positive), Sleeve (ground), and Switch (we leave this unconnected).
 
-2. **Place the voltage regulator.** Add `AMS1117-5.0` (search for `AMS1117` in the symbol library). If your library has the generic `LM1117-5.0`, that works too. Place it to the right of the barrel jack.
+2. **Place the voltage regulator.** Add `LM7805_TO220` (search for `7805` in the symbol library). Place it to the right of the barrel jack.
 
 3. **Place capacitors.** Add two `C_Polarized` symbols for C5 (10 µF, regulator input) and C6 (10 µF, regulator output). Place C5 between the barrel jack and regulator input, C6 between the regulator output and the MCU power pins.
 
@@ -271,7 +271,7 @@ Open **Tools > Assign Footprints** (or click the footprint assignment icon in th
 | Symbol | Footprint |
 |--------|-----------|
 | ATmega328P-PU | `Package_DIP:DIP-28_W7.62mm` |
-| AMS1117-5.0 | `Package_TO_SOT_SMD:SOT-223-3_TabPin2` (or `Package_TO_SOT_THT:TO-220-3_Vertical` for a through-hole version) |
+| LM7805 | `Package_TO_220:TO-220-3_Vertical` |
 | Crystal 16MHz | `Crystal:Crystal_HC49-U_Vertical` |
 | C 22pF, 100nF | `Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P2.50mm` |
 | C_Polarized 10uF | `Capacitor_THT:CP_Radial_D5.0mm_P2.50mm` |
@@ -445,7 +445,7 @@ Ferric chloride stains permanently and is mildly corrosive. Wear gloves and eye 
 
 4. **Connectors last.** Barrel jack (J1), ISP header (J2), pin headers (J3, J4). These are the tallest components.
 
-5. **Voltage regulator.** Solder U2 (AMS1117-5.0). If using the SOT-223 surface-mount version, solder it on the bottom of the board. If using TO-220 through-hole, it goes on top with a small heat sink if needed.
+5. **Voltage regulator.** Solder U2 (LM7805) on top. Attach a small clip-on heatsink if you plan to run from 12V at higher current.
 
 6. **Insert the ATmega328P** into the DIP socket. Match pin 1 (marked with a dot on the chip) with the socket notch.
 </Steps>
