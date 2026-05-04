@@ -272,6 +272,26 @@ Open **Tools > Assign Footprints** and set:
 8. **Run DRC.** Zero errors, zero unconnected items.
 </Steps>
 
+### Optional: Speed Up With Freerouting
+
+KiCad does not ship a built-in autorouter (the original was Java-based and dropped in KiCad 5 because no one stepped up to maintain it). The community-standard replacement is **Freerouting**, a free Java app that talks to KiCad through the Specctra DSN/SES file format.
+
+For a board this dense, Freerouting can save real time, but only if you do not let it touch the nets that matter:
+
+<Steps>
+1. **Hand-route and lock the critical nets first.** Power (+5V, +3V3, GND), the crystal pair (XTAL1/XTAL2), and the I2C pair (SDA/SCL) all benefit from deliberate placement. Route them yourself, then select each track and check **Locked** in the Properties panel. Locked tracks survive the autorouter pass.
+
+2. **Install Freerouting.** Download the latest release from [github.com/freerouting/freerouting](https://github.com/freerouting/freerouting) (you need a Java runtime installed). On many systems it is also available through KiCad's **Plugin and Content Manager** (PCM).
+
+3. **Launch the autorouter from the PCB Editor toolbar** (the icon usually looks like a maze or a green PCB with arrows). The dialog exports a `.dsn` of the current board, hands it to Freerouting, waits for results, and imports the `.ses` back automatically.
+
+4. **Review the result.** Look for: too many vias on a single net, sharp corners on signals you care about, traces that cross under the crystal. Re-route by hand anything you don't like; the autoroute is a starting point, not a finished design.
+
+5. **Run DRC again.** Locked tracks should be untouched, the rest should be connected, zero errors.
+</Steps>
+
+For a small, mostly-digital board like this one, hand routing teaches you more and the time difference is small. Freerouting earns its place when you reach 50+ nets, are working under deadline, or routing pure digital fan-out where aesthetics matter less than completion. Either choice produces the same Gerbers downstream.
+
 ### Double-Sided Layout Tips
 
 <Card title="SMD Placement Rules" icon="information">
