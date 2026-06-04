@@ -412,6 +412,10 @@ SMD soldering requires different tools than through-hole work.
 - **Component shifted during reflow**: the component moved when you applied hot air. Use less airflow, or tack one side with an iron first.
 </Card>
 
+:::tip[Instrument it]
+A [sensor shield](/education/sensor-actuator-interfacing-stm32/) is only worth building if its readings can be trusted, and that is a layout problem. Keep the analog sensor traces short and away from the crystal, the switching regulator, and any PWM line, give each sensor a local decoupling capacitor, and pour a solid ground under the analog section so noise does not ride in on the measurement. A clean shield is the difference between a sensor you can [act on](https://siliconwit.io) and one whose jitter you learn to ignore.
+:::
+
 ## First Power-On and Testing
 
 <InArticleAd />

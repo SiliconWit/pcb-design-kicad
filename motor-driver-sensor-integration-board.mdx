@@ -399,6 +399,10 @@ Before generating manufacturing files, run the DRC in KiCad:
 - No unrouted nets
 - No overlapping pads or silk
 
+:::tip[Instrument it]
+This board is itself an instrument: it drives a motor and [senses what the motor is doing](/education/sensor-actuator-interfacing-stm32/), so treat that sensing as first-class. Put the current-sense shunt and amplifier (an INA226, or the driver's own current feedback) right at the motor supply so a stall or jam shows as a current spike, keep the IMU away from the high-current traces and the switching node so motor noise does not swamp it, and bring both out to clean connectors. A board laid out this way becomes a mountable, durable node that can [stream](/education/iot-systems/) load and motion to a [dashboard](https://siliconwit.io) and act on a stall, not just a breadboard demo.
+:::
+
 ## Manufacturing
 
 <InArticleAd />
