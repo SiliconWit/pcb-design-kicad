@@ -25,33 +25,29 @@ import { Card, CardGrid, Badge, Steps, LinkButton, FileTree } from '@astrojs/sta
 
 import PcbDesignKicadComments from '../../../../components/pcb-design-kicad/PcbDesignKicadComments.astro';
 
-This lesson designs a development board around the Raspberry Pi RP2040, a dual-core ARM Cortex-M0+ microcontroller with Programmable I/O (PIO) hardware. Unlike every MCU in the previous lessons, the RP2040 has no internal flash. It boots entirely from an external QSPI flash chip, which introduces new routing constraints. You will work with a QFN-56 package, design a dual power domain (3.3V I/O and 1.1V core), and route high-speed QSPI traces on a 4-layer board. #KiCad #RP2040 #PIO
+The RP2040 is a fast microcontroller (MCU) that costs about 1 USD, but the chip alone cannot run a program. It has no program memory inside, so a separate flash memory chip must sit beside it. Its 56 contacts are hidden under the package, where a soldering iron cannot reach. It needs two supply voltages, a crystal and a few resistors of exact value, and a board with one of these wrong is silent when you plug it in. In this lesson you design a complete RP2040 board with USB-C on four copper layers, solder it with paste and hot air, and load a first program without a programmer. #KiCad #RP2040 #PIO
+
+The chip needs 3.3V for its pins and 1.1V for its processor core. A regulator on the board makes the 3.3V, and a regulator inside the RP2040 makes the 1.1V from it:
 
 ```text
-  RP2040 Dual Power Domain
-  ──────────────────────────────────────────
-  USB-C 5V ──► NCP1117 LDO ──► 3.3V (IOVDD)
-                                  │
-                   ┌──────────────┤
-                   │              │
-                   ▼              ▼
-              ┌─────────┐   ┌─────────────┐
-              │ RP2040   │   │ W25Q128     │
-              │ (IOVDD   │   │ QSPI Flash  │
-              │  = 3.3V) │   │ (3.3V)      │
-              │          │   └─────────────┘
-              │ Internal │
-              │ 1.1V reg ├──► DVDD (core)
-              │  ┌───┐   │
-              │  │ L │   │  1uH inductor
-              │  └───┘   │  + caps required
-              └──────────┘
+  USB-C 5V ──► NCP1117 ──► 3.3V
+                             │
+              ┌──────────────┴───┐
+              ▼                  ▼
+        ┌───────────┐     ┌────────────┐
+        │  RP2040   │     │  W25Q128   │
+        │ pins 3.3V │     │ flash chip │
+        │           │     └────────────┘
+        │ internal  │
+        │ 1.1V reg. ├──► DVDD (core)
+        └───────────┘
+        1 µF at its input, 1 µF at its output
 ```
 
 ## What We Are Building
 
 <Card title="RP2040 USB-C Development Board with PIO" icon="star">
-A Pico-style development board built around the RP2040 in a QFN-56 package. The board includes 16 MB of external QSPI flash, native USB-C (no USB bridge chip needed), a 12 MHz crystal for the USB PLL, 3.3V LDO regulation with the RP2040's internal 1.1V core regulator, a WS2812B RGB LED, SWD debug header, BOOTSEL and reset buttons, and 2x20-pin GPIO headers with PIO-capable pins marked.
+A development board in the style of the Raspberry Pi Pico, around the RP2040 in a QFN-56 package. It has 16 MB of external flash memory, USB-C wired directly to the chip, a 12 MHz crystal, a 3.3V regulator, one RGB LED (WS2812B), a debug header, BOOTSEL and reset buttons, and two 20-pin headers for the input and output pins (GPIO).
 </Card>
 
 **Board specifications:**
@@ -62,8 +58,8 @@ A Pico-style development board built around the RP2040 in a QFN-56 package. The 
 | Flash | W25Q128JV 16 MB QSPI (or W25Q16JV 2 MB) |
 | USB | USB-C, native USB 1.1 Full-Speed (device and host capable) |
 | Clock | 12 MHz crystal for USB PLL |
-| I/O Power | 3.3V via NCP1117-3.3 LDO (or RT6150 buck-boost) |
-| Core Power | 1.1V from RP2040 internal regulator (external 1 µH inductor + caps) |
+| I/O Power | 3.3V via NCP1117-3.3 LDO (a linear regulator) |
+| Core Power | 1.1V from RP2040 internal linear regulator (1 µF capacitors on its input and output, no inductor) |
 | LED | WS2812B addressable RGB LED on GPIO |
 | Debug | SWD header (SWDIO, SWCLK, GND) |
 | Buttons | BOOTSEL (UF2 mode), Reset (RUN pin) |
@@ -80,23 +76,21 @@ A Pico-style development board built around the RP2040 in a QFN-56 package. The 
 | Y1 | 12 MHz crystal | 3.2x2.5mm SMD | 1 | 15 pF load, USB PLL reference |
 | J1 | USB-C receptacle | USB-C 16-pin | 1 | Mid-mount or top-mount |
 
+The RP2040 reads its program from the flash chip over six tracks: a chip select, a clock and four data lines. This connection is called QSPI (quad SPI). All six stay short, on one layer, and nearly equal in length:
+
 ```text
-  QSPI Flash Routing Constraints
-  ──────────────────────────────────────────
   RP2040 (QFN-56)        W25Q128 (SOIC-8)
   ────────────────        ────────────────
   QSPI_SS  ────────────── /CS
   QSPI_SCK ────────────── CLK
-  QSPI_SD0 ════════════── DI/IO0
-  QSPI_SD1 ════════════── DO/IO1
-  QSPI_SD2 ════════════── /WP/IO2
-  QSPI_SD3 ════════════── /HOLD/IO3
+  QSPI_SD0 ══════════════ DI/IO0
+  QSPI_SD1 ══════════════ DO/IO1
+  QSPI_SD2 ══════════════ /WP/IO2
+  QSPI_SD3 ══════════════ /HOLD/IO3
 
-  ════ = length-matched traces
-  All 6 traces: max 25mm, match to 2mm
-  Keep traces on same layer (top)
-  No vias in QSPI bus if possible
-  Place flash chip within 10mm of RP2040
+  All 6 tracks: at most 25 mm, equal within 5 mm
+  All on the top layer, no vias
+  Flash chip within 10 mm of the RP2040
 ```
 
 | Reference | Value | Package | Qty | Function |
@@ -104,8 +98,7 @@ A Pico-style development board built around the RP2040 in a QFN-56 package. The 
 | J2 | SWD header | 1x3 2.54mm | 1 | SWDIO, SWCLK, GND |
 | J3, J4 | GPIO headers | 1x20 2.54mm | 2 | All GPIO broken out, PIO-capable marked |
 | LED1 | WS2812B | 5050 (5x5mm) | 1 | Addressable RGB LED |
-| L1 | 1 µH inductor | 0603 or 0805 | 1 | RP2040 core voltage regulator (low DCR) |
-| C1-C6 | 100 nF | 0402 | 6 | Decoupling per IOVDD/DVDD pair |
+| C1-C6 | 100 nF | 0402 | 6 | Decoupling, one per IOVDD pin |
 | C7, C8 | 15 pF | 0402 | 2 | Crystal load capacitors |
 | C9 | 1 µF | 0402 | 1 | VREG_VIN decoupling |
 | C10 | 100 nF | 0402 | 1 | VREG_VOUT decoupling |
@@ -128,108 +121,81 @@ A Pico-style development board built around the RP2040 in a QFN-56 package. The 
 <InArticleAd />
 
 
-The RP2040 is the first microcontroller designed by Raspberry Pi. It packs two ARM Cortex-M0+ cores running at up to 133 MHz, 264 KB of on-chip SRAM (split into six banks), and a rich set of peripherals. What sets it apart from most microcontrollers is the Programmable I/O (PIO) subsystem: two PIO blocks, each containing four state machines that can execute small programs to implement custom I/O protocols entirely in hardware. PIO can generate precise timing for protocols like WS2812B LED control, VGA video output, or custom serial interfaces without using any CPU cycles.
+Three properties of the RP2040 decide what the board must contain.
 
-The RP2040 has no internal flash memory. All code is stored on an external QSPI flash chip and is either executed in place (XIP) through a cache or copied to SRAM at boot. The chip's boot ROM contains a UF2 bootloader: hold the BOOTSEL button while plugging in USB, and the board appears as a mass storage device. You drag and drop a `.uf2` firmware file to program it. No special programmer or software is needed.
+It has no flash memory inside. The program lives in the external flash chip, and the RP2040 runs it directly from there (execute in place, XIP), so the six QSPI tracks carry every instruction and must be routed with care. The chip does hold a small permanent program, the boot ROM, that nobody can erase. Hold the BOOTSEL button while you plug in USB, and the boot ROM makes the board appear on the computer as a drive. You copy a `.uf2` program file to that drive, and the board is programmed. No programmer is needed, and no faulty program can stop this from working.
 
-Native USB 1.1 is built into the RP2040, supporting both device and host modes. The USB PHY is internal, so the D+ and D- lines connect directly to the USB connector through series termination resistors. A 12 MHz crystal provides the reference clock for the USB PLL, which generates the 48 MHz USB clock internally.
+It has USB inside. The USB transceiver (the PHY) is part of the chip, so D+ and D- go from the connector to the chip through two resistors and nothing else. USB needs an exact 48 MHz clock. A 12 MHz crystal gives the reference, and a PLL inside the chip (a circuit that multiplies a clock to a higher frequency) makes 48 MHz from it.
 
-### Key RP2040 Features
+It has two ARM Cortex-M0+ cores at up to 133 MHz, 264 KB of RAM, and Programmable I/O (PIO). PIO is eight small state machines that each run a tiny program to make or read signals with exact timing, without using the processor. It drives the RGB LED on this board.
 
-| Feature | Detail |
-|---------|--------|
-| Cores | 2x Cortex-M0+ at 133 MHz |
-| SRAM | 264 KB (6 independent banks) |
-| Flash | None (external QSPI required) |
-| PIO | 2 blocks, 4 state machines each, 32 instructions per block |
-| USB | USB 1.1 device/host, internal PHY |
-| GPIO | 30 multi-function GPIO (all PIO-capable) |
-| ADC | 4-channel 12-bit SAR ADC + internal temperature sensor |
-| PWM | 16 channels (8 slices, 2 outputs each) |
-| SPI | 2x SPI controllers |
-| I2C | 2x I2C controllers |
-| UART | 2x UART |
-| DMA | 12-channel DMA controller |
+The chip also has 30 GPIO pins, a 4-channel 12-bit converter for analog voltages (ADC), and two each of SPI, I2C and UART.
 
 ## QFN Package Considerations
 
 <InArticleAd />
 
 
-The RP2040 comes in a QFN-56 package measuring 7x7 mm with 0.4 mm pad pitch. QFN (Quad Flat No-lead) packages have no visible leads extending from the sides. Instead, the electrical connections are flat pads on the bottom of the package. This makes QFN packages compact and excellent for high-frequency performance (short bond wire lengths mean lower inductance), but it also means you cannot solder them with a standard soldering iron.
+The RP2040 comes in a QFN-56 package, a 7x7 mm square. QFN means Quad Flat No-lead: the package has no legs. Its 56 contacts are flat pads under its four edges, 0.4 mm from one centre to the next. The package is small and its short connections suit fast signals, but an ordinary soldering iron cannot reach the pads.
 
 ### QFN Soldering Requirements
 
-The QFN-56 has 56 perimeter pads plus a large exposed thermal/ground pad in the center. The exposed pad serves two critical functions: it provides the primary ground connection for the die, and it conducts heat away from the chip into the PCB. This pad must be soldered to the PCB ground plane.
+In the middle of the underside is one large pad, the exposed pad. It is the chip's only ground connection, and it carries the chip's heat into the board. It must be soldered to the ground plane, or the chip does not work.
 
-**What you need for QFN assembly:**
+You solder a QFN by reflow: you put solder paste on the pads, place the parts in the paste, and heat the whole board until the paste melts.
 
 <Steps>
 
-1. Solder paste stencil. Order a stainless steel stencil with your PCBs. The stencil has laser-cut openings that match every pad on the board. You squeegee solder paste across the stencil, and paste deposits only where the pads are. For the QFN exposed pad, the stencil opening is typically divided into a grid pattern (for example, 3x3 or 4x4 smaller rectangles) to prevent excess paste from causing the chip to float during reflow.
+1. Solder paste stencil. Order a stainless steel stencil with your boards. It is a thin sheet with an opening over every pad. You draw solder paste across it with a blade, and paste stays only on the pads. Over the exposed pad, the opening is divided into a grid of small rectangles (3x3 or 4x4). One large opening would put too much paste there, and the chip would float on it with its edge pads in the air.
 
-2. Reflow soldering. After placing components on the pasted board, you reflow the entire assembly. Options include a hot air rework station (focused on the QFN area), a desktop reflow oven, or a modified toaster oven with a thermocouple and temperature controller. The reflow profile ramps to about 150 C for preheat, then peaks at 245 to 260 C for lead-free solder.
+2. Reflow soldering. Heat the board with a hot air station, a small reflow oven, or a toaster oven with a temperature controller. The board warms to about 150 C first, then reaches 245 to 260 C for lead-free solder.
 
-3. Placement accuracy. With 0.4 mm pitch pads, alignment matters. Use fine-tip tweezers and a magnifying lamp or microscope. The QFN package has a pin 1 indicator dot. Align it with the pin 1 marking on the PCB silkscreen. The self-centering effect of molten solder during reflow helps correct minor misalignment, but you need to be within about 0.1 mm.
+3. Placement accuracy. Use fine tweezers and a magnifier. Turn the chip so its pin 1 dot is at the pin 1 mark printed on the board. Melted solder pulls a chip into line by surface tension, but only if you place it within about 0.1 mm.
 
 </Steps>
 
 ### PCB Pad Design for QFN
 
-The KiCad footprint for the RP2040 QFN-56 should follow these guidelines:
+Check three things in the KiCad footprint for the RP2040:
 
-- **Perimeter pads:** Extend pads 0.2 mm beyond the package edge so you can visually inspect solder fillets from above. The pad width matches the QFN pad width (typically 0.2 mm for 0.4 mm pitch), and the pad length extends inward to just past the package edge.
-- **Exposed pad:** The PCB pad matches the exposed pad dimensions on the datasheet (approximately 3.1 x 3.1 mm for the RP2040). Apply a paste mask with a grid pattern to control solder volume.
-- **Thermal vias:** Place an array of small vias (0.3 mm drill, 0.6 mm pad) within the exposed pad area, connecting it to the inner ground plane. A 3x3 or 4x4 grid works well. These vias transfer heat from the QFN ground pad into the internal copper layers. Tent or plug the vias from the bottom side to prevent solder wicking through during reflow.
+- Edge pads: each pad is as wide as the contact (about 0.2 mm) and extends 0.2 mm outside the package edge, so you can see the solder joint from above.
+- Exposed pad: the copper pad matches the size in the data sheet (about 3.2 x 3.2 mm), and its paste layer is a grid.
+- Thermal vias: a 3x3 or 4x4 grid of small vias (0.3 mm drill, 0.6 mm pad) in the exposed pad joins it to the inner ground plane and carries heat into it. Cover or fill the vias on the bottom side, so solder does not run down through them.
 
 ## Schematic Capture
 
 <InArticleAd />
 
 
-The RP2040 minimal circuit requires careful attention to multiple power domains and specific pin configurations. This section walks through each subsystem.
+Build the schematic one small circuit at a time, in the order below.
 
 <LinkButton href="https://github.com/SiliconWit/pcb-design-kicad/blob/main/schematics/rp2040-usb-c-development-board.pdf" target="_blank" variant="secondary" icon="document">Download Schematic PDF</LinkButton>
 
+The PDF is an earlier drawing. It has no polyfuse and no WS2812B (it has a power LED and a plain LED on GPIO25), and it puts 100 µF on each side of the regulator, where USB allows at most 10 µF on VBUS. It also uses a 4 MB flash chip, a 1 kΩ resistor in series with the crystal and another in series with the reset button, a 4-pin debug header, and other part numbers (J3 is the USB connector, SW1 is reset and SW2 is BOOTSEL). Where the two differ, follow the text.
+
 ### Power Supply Design
 
-The RP2040 has two voltage domains:
+The RP2040 has two supplies:
 
-- **IOVDD (3.3V):** Powers all GPIO and digital I/O. Six IOVDD pins, each needing a 100 nF decoupling capacitor placed within 2 mm of the pin.
-- **DVDD (1.1V core):** Powers the processor cores, SRAM, and internal logic. The RP2040 includes an internal voltage regulator that steps 3.3V (on VREG_VIN) down to 1.1V (on VREG_VOUT). This regulator requires an external 1 µH inductor and capacitors.
+- IOVDD (3.3V) feeds the GPIO pins. It has six pins. A fast chip takes its current in short pulses, so each pin gets its own 100 nF decoupling capacitor within 2 mm, which delivers those pulses.
+- DVDD (1.1V) feeds the processor cores and memory. A regulator inside the RP2040 makes it: 3.3V goes in at VREG_VIN and 1.1V comes out at VREG_VOUT. This regulator is linear. It needs a 1 µF capacitor at its input and a 1 µF capacitor at its output, and no inductor.
 
-**Power path:**
-
-```
-USB VBUS (5V) → Polyfuse → NCP1117-3.3 LDO → 3.3V rail
-                                                   │
-                                   ┌───────────────┤
-                                   │               │
-                              IOVDD pins      VREG_VIN
-                              (6x 100nF)         │
-                                          RP2040 internal
-                                            regulator
-                                                │
-                                          1µH inductor
-                                                │
-                                          VREG_VOUT → DVDD
-                                          (100nF + 1µF)
-```
+The power path is: USB VBUS (5V), polyfuse F1, NCP1117-3.3 regulator, 3.3V. A polyfuse is a fuse that resets itself, and it limits the current if the board has a short.
 
 **LDO circuit (NCP1117-3.3):**
 - Input: USB VBUS (5V) through polyfuse F1
 - Input capacitor: 10 µF ceramic on VIN
-- Output capacitor: 10 µF ceramic on VOUT
-- Output: 3.3V rail feeding IOVDD, VREG_VIN, flash VCC, WS2812B VDD
+- Output capacitor: 10 µF ceramic on VOUT, which the regulator needs to stay stable
+- Output: 3.3V to IOVDD, VREG_VIN, flash VCC, WS2812B VDD
 
 **Core regulator external components:**
-- VREG_VIN: connect to 3.3V with 1 µF decoupling
-- VREG_VOUT: connect through 1 µH inductor to DVDD, with 100 nF and 1 µF capacitors to ground
-- The inductor must be low DCR (under 0.5 Ω) to avoid excessive voltage drop
+- VREG_VIN: connect to 3.3V, with 1 µF to GND
+- VREG_VOUT: connect directly to both DVDD pins, with a 1 µF capacitor close to VREG_VOUT and 100 nF at the DVDD pins
+- No inductor: the RP2040 core regulator is linear (the later RP2350 is the chip that needs one)
 
 ### USB-C Connection
 
-The RP2040 has a built-in USB PHY, so no external USB bridge chip is needed. The connections are straightforward:
+The RP2040 connects to USB directly, with no USB bridge chip. Use a 16-pin USB-C receptacle: a 6-pin one carries power only and has no data pins.
 
 | USB-C Pin | Connection |
 |-----------|------------|
@@ -240,11 +206,11 @@ The RP2040 has a built-in USB PHY, so no external USB bridge chip is needed. The
 | D- | 27 Ω series resistor to RP2040 USB_DM (pin 46) |
 | GND | Board ground |
 
-The 5.1 kΩ resistors on CC1 and CC2 tell the USB-C host that this board is a device requesting 5V default power. The 27 Ω series resistors on D+/D- provide impedance matching and ESD damping.
+A USB-C host (a computer, hub or charger) gives no 5V until it sees a device. One 5.1 kΩ resistor from each CC pin to GND is that sign, and the USB-C standard fixes the value. The RP2040's USB driver has a low output resistance, and 27 Ω in series with each data line raises it to what the cable expects. The RP2040 data sheet asks for this value.
 
 ### QSPI Flash Connection
 
-The W25Q128JV connects to the RP2040's dedicated QSPI pins. These are not regular GPIO; they are hardwired in the RP2040 for boot flash access.
+The W25Q128JV connects to the RP2040's six QSPI pins. These pins are not GPIO: the chip reserves them for the flash memory it starts from.
 
 | Flash Pin | RP2040 Pin | Function |
 |-----------|------------|----------|
@@ -257,63 +223,66 @@ The W25Q128JV connects to the RP2040's dedicated QSPI pins. These are not regula
 | VCC | 3.3V | Power (100 nF + 4.7 µF decoupling) |
 | GND | GND | Ground |
 
-Add a 1 kΩ pull-up resistor on CS# to 3.3V to ensure the flash is deselected during power-up before the RP2040 takes control.
+Add a 1 kΩ pull-up resistor from CS# to 3.3V. While the power rises, the RP2040 does not yet drive this line, and the resistor keeps the flash chip unselected.
 
 ### Crystal Oscillator
 
-The 12 MHz crystal connects between XIN (pin 22) and XOUT (pin 23):
+The 12 MHz crystal connects between XIN (pin 20) and XOUT (pin 21), with a 15 pF load capacitor from each pin to ground.
 
-- 15 pF load capacitors from each pin to ground
-- Crystal should be placed as close to the RP2040 as possible (within 5 mm)
-- Guard the crystal traces with a ground pour to prevent interference
-- No traces should run between the two crystal pads
+A crystal runs at its marked frequency only when it sees its specified load capacitance $C_L$. The two capacitors act in series, and the pins and tracks add about 5 pF of stray capacitance, so each capacitor should be $2\,(C_L - 5\,\text{pF})$. For a crystal with $C_L$ = 15 pF this gives 20 pF. With the 15 pF fitted here, the crystal sees $15/2 + 5 = 12.5\,\text{pF}$ and runs a few tens of parts per million fast. Full-speed USB allows 2,500 parts per million, so the board works. Fit 20 pF capacitors, or a crystal with a load capacitance of 12 pF, if you need the exact frequency.
+
+In the layout:
+
+- Place the crystal within 5 mm of the RP2040
+- Surround its tracks with a ground pour, which shields them
+- Route no track between the two crystal pads
 
 ### BOOTSEL and Reset
 
-**BOOTSEL button:** This is connected to QSPI_SS (the flash chip select line). When QSPI_SS is held LOW during power-up or reset, the RP2040's boot ROM enters UF2 mass storage mode instead of booting from flash. The button shorts QSPI_SS to GND. During normal operation, the button press is ignored because the RP2040 drives QSPI_SS as an output.
+**BOOTSEL button:** The button connects QSPI_SS, the chip select line of the flash, to GND. If QSPI_SS is low when the chip starts, the boot ROM does not start the program in flash. It shows the board to the computer as a drive and waits for a `.uf2` file. After the start, the RP2040 drives QSPI_SS as an output and does not read the button.
 
-**Reset button:** The RUN pin is the RP2040's active-low reset. Connect a 10 kΩ pull-up to 3.3V and a tactile switch to GND. Pressing the button pulls RUN low, resetting both cores.
+**Reset button:** RUN is the reset pin, and the chip restarts when it is pulled to 0 V. Connect a 10 kΩ pull-up from RUN to 3.3V and a tactile switch from RUN to GND.
 
-To enter UF2 bootloader mode: hold BOOTSEL, press and release reset, then release BOOTSEL.
+To enter this drive mode on a powered board: hold BOOTSEL, press and release reset, then release BOOTSEL.
 
 ### SWD Debug Header
 
-The RP2040 supports Serial Wire Debug on dedicated pins:
-- SWDIO (pin 24)
-- SWCLK (pin 25)
+SWD (Serial Wire Debug) is the two-wire connection through which a debugger loads a program, stops it and reads its variables. The RP2040 has it on fixed pins:
+- SWCLK (pin 24)
+- SWDIO (pin 25)
 - GND
 
-A 1x3 pin header is sufficient for basic SWD. Some debug probes (Raspberry Pi Debug Probe, Picoprobe) also use a UART connection, so you may optionally add a second header for UART0 TX/RX.
+A 1x3 pin header is enough. Some debug probes (Raspberry Pi Debug Probe, Picoprobe) also use a serial port, so you may add a second header for UART0 TX and RX.
 
 ### WS2812B RGB LED
 
-The WS2812B is an addressable RGB LED with a built-in driver. It requires a single data line:
+The WS2812B is an RGB LED with its own driver chip inside. One data line sets its colour:
 
-- VDD: 3.3V (the WS2812B works at 3.5 to 5.3V; 3.3V is below the official minimum, but most units work reliably at 3.3V; alternatively, power from VBUS at 5V)
-- DIN: Connect to a GPIO (for example, GPIO16) through a 330 Ω series resistor
-- DOUT: Leave unconnected (only one LED in the chain)
-- GND: Board ground
+- VDD: 3.3V (the data sheet range is 3.5 to 5.3V; most units work at 3.3V; you can also power it from VBUS at 5V)
+- DIN: connect to a GPIO (for example, GPIO16) through a 330 Ω series resistor, which softens the signal edge
+- DOUT: leave unconnected (it would feed the next LED of a chain)
+- GND: board ground
 - Place a 100 nF decoupling capacitor between VDD and GND, close to the LED
 
 ### GPIO Headers and PIO Pin Labeling
 
-Break out all 26 available GPIO pins on two 1x20 headers (matching the Raspberry Pi Pico pinout where practical). The headers also carry 3.3V, GND, VBUS, and ADC_VREF.
+Bring 26 GPIO pins to two 1x20 headers, in the order of the Raspberry Pi Pico where you can. The headers also carry 3.3V, GND, VBUS, and ADC_VREF.
 
-All 30 GPIO on the RP2040 are PIO-capable. On the silkscreen, label the ADC-capable pins (GPIO26, GPIO27, GPIO28, GPIO29) with "ADC" to help users identify analog inputs. Label the SPI, I2C, and UART default pin assignments as well.
+PIO can use any GPIO, so every GPIO pin on the headers is a PIO pin. In the printed text on the board (the silkscreen), mark the pins that can measure a voltage (GPIO26 to GPIO29) with "ADC", and mark the default SPI, I2C and UART pins.
 
 ### Electrical Rules Check
 
-Run ERC in KiCad after completing the schematic:
+The electrical rules check (ERC) finds pins left open and nets that nothing drives. Run it when the schematic is complete:
 
 <Steps>
 
-1. Check power flags. Every power net (3.3V, 1.1V, VBUS, GND) must have a power flag symbol or be driven by a regulator output. The RP2040's VREG_VOUT drives the 1.1V net, so mark it accordingly.
+1. Check power flags. Every power net (3.3V, 1.1V, VBUS, GND) needs a power flag symbol or a regulator output that drives it. VREG_VOUT drives the 1.1V net.
 
-2. Verify unconnected pins. The RP2040 has several pins that must be connected to specific nets. TESTEN (pin 20) must be tied to GND. USB_VDD (pin 48) must be connected to 3.3V with a 100 nF decoupling capacitor. All six IOVDD pins must connect to 3.3V.
+2. Check the pins that must not be left open. TESTEN (pin 19) goes to GND. USB_VDD (pin 48) goes to 3.3V with a 100 nF decoupling capacitor. All six IOVDD pins and ADC_AVDD (pin 43) go to 3.3V.
 
-3. Check for missing decoupling. Each IOVDD pin pair and the DVDD pins should have associated 100 nF capacitors placed in the schematic.
+3. Check the decoupling. Each IOVDD pin and each DVDD pin has its 100 nF capacitor in the schematic.
 
-4. Assign footprints. Open the footprint assignment tool and verify every component has the correct footprint. Pay special attention to the RP2040 QFN-56 footprint (should match the 7x7mm, 0.4mm pitch dimensions) and the W25Q128JV SOIC-8 footprint.
+4. Assign footprints. Open the footprint assignment tool and check that every part has its footprint, the pattern of pads it is soldered to. Check the RP2040 QFN-56 (7x7mm, 0.4mm pitch) and the W25Q128JV SOIC-8 (the wide, 208 mil version) with most care.
 
 </Steps>
 
@@ -324,7 +293,7 @@ Run ERC in KiCad after completing the schematic:
 
 ### Layer Stackup
 
-Use the same stackup proven in Lesson 4:
+Use the stack-up (the order of copper layers and insulation) of the [STM32 USB-C four-layer board](/education/pcb-design-kicad/stm32-usb-c-four-layer-pcb/):
 
 | Layer | Function | Copper Weight |
 |-------|----------|---------------|
@@ -333,82 +302,77 @@ Use the same stackup proven in Lesson 4:
 | In2.Cu (Layer 3) | 3.3V power plane | 0.5 oz |
 | B.Cu (Layer 4) | Signal routing, bottom components | 1 oz |
 
-The ground plane on Layer 2 provides a continuous return path for all signals on Layer 1. The 3.3V plane on Layer 3 distributes power to all components through short vias. The 1.1V core supply is a small local pour near the RP2040, not a full-board plane.
+A fast signal returns to its source through the ground plane, directly under its own track. With a whole plane on Layer 2, every track on Layer 1 has that path 0.2 mm below it. The 3.3V plane on Layer 3 reaches every part through a short via. The 1.1V core supply is a small area of copper near the RP2040, not a plane.
 
 ### QFN Pad Layout and Thermal Vias
 
-Place the RP2040 near the center of the board, rotated so that the QSPI pins face the flash chip location and the USB pins face the board edge where the USB-C connector sits. The QFN exposed pad connects to GND through the PCB. Under this pad, create an array of thermal vias (3x3 or 4x4 grid, 0.3 mm drill) connecting F.Cu directly to the In1.Cu ground plane. In KiCad, you can add these vias inside the exposed pad copper zone. Set the via annular ring to 0.15 mm minimum to comply with standard fabrication rules.
+Place the RP2040 near the center of the board. Turn it so that the QSPI pins face the flash chip and the USB pins face the edge with the USB-C connector, which keeps both sets of tracks short. Under the exposed pad, place the grid of thermal vias (3x3 or 4x4, 0.3 mm drill) from F.Cu to the In1.Cu ground plane. Give each via at least 0.15 mm of copper around its hole, a limit that standard factories can hold.
 
-On the solder paste layer, divide the exposed pad into a grid of smaller rectangles (for example, 9 rectangles in a 3x3 pattern) with gaps between them. This prevents too much solder paste from pooling under the chip, which could cause the RP2040 to float off the perimeter pads during reflow.
+On the solder paste layer, check that the exposed pad is a grid of small rectangles with gaps between them (for example 3x3), for the reason given above: too much paste lifts the chip off its edge pads.
 
 ### QSPI Flash Routing
 
-The QSPI interface runs at up to 133 MHz (the W25Q128JV maximum). At these frequencies, trace length and matching matter.
-
-**QSPI routing rules:**
+The flash clock can run at up to 133 MHz, the limit of the W25Q128JV. One clock period is then 7.5 ns, and the four data lines must all be read correctly inside it. A track that is longer delivers its bit later, and a long track with a via reflects part of the signal. A signal travels about 1 mm in 6 ps, so a 5 mm difference is only 30 ps: the rules below are easy to meet when the flash chip is close.
 
 | Rule | Target |
 |------|--------|
-| Maximum trace length (any QSPI signal) | 25 mm |
+| Maximum track length (any QSPI signal) | 25 mm |
 | Length matching (all 6 signals within) | 5 mm of each other |
 | Routing layer | Single layer preferred (F.Cu), avoid vias |
-| Trace width | 0.15 to 0.2 mm (standard signal) |
-| Spacing from other signals | At least 0.2 mm (2x trace width) |
+| Track width | 0.15 to 0.2 mm (standard signal) |
+| Spacing from other signals | At least 0.2 mm (2x track width) |
 | Series termination (optional) | 33 Ω on CLK and IO0-IO3 |
 
 <Steps>
 
-1. **Place the flash chip close to the RP2040.** Position the W25Q128JV within 10 mm of the RP2040 QSPI pins, on the same side of the board. Shorter traces mean better signal integrity and easier length matching.
+1. **Place the flash chip close to the RP2040.** Put the W25Q128JV within 10 mm of the QSPI pins, on the same side of the board. Short tracks are also easy to make equal.
 
-2. Route all six QSPI signals on F.Cu. Avoid layer transitions (vias) on the QSPI bus. Each via adds approximately 0.5 nH of inductance and breaks the return path on the ground plane. Keep all six traces (CLK, CS, IO0 through IO3) on the top layer.
+2. Route all six QSPI signals (CLK, CS, IO0 to IO3) on F.Cu, with no vias. A via adds about 0.5 nH of inductance and takes the signal away from its ground plane.
 
-3. Match trace lengths. In KiCad, use the interactive router's length tuning tool. Select all six QSPI nets, set a target length (for example, 15 mm), and add serpentine meanders to shorter traces until all six are within 5 mm of the longest. The CLK trace is the most critical reference, so match data traces to the CLK length.
+3. Make the lengths equal. Select the six QSPI nets in KiCad's length tuning tool, set a target (for example 15 mm), and add small bends to the shorter tracks until all six are within 5 mm of the longest. The data is read on the clock, so match the data tracks to CLK.
 
-4. Add series termination resistors (optional). Place 33 Ω resistors in series with CLK and each data line, located close to the RP2040 pins (within 3 mm). These damp reflections and clean up signal edges. They are optional at lower clock speeds but recommended if you plan to run the flash at maximum speed.
+4. Add series resistors (optional). A 33 Ω resistor in series with CLK and each data line, within 3 mm of the RP2040 pins, absorbs reflections. Fit them if you run the flash at its top speed.
 
-5. Ground guard. Ensure a solid ground pour surrounds the QSPI traces on F.Cu, and the ground plane on In1.Cu is unbroken beneath the entire QSPI routing area.
+5. Keep ground around and under the tracks. Fill the space beside them on F.Cu with ground pour, and leave the In1.Cu plane whole under all six.
 
 </Steps>
 
 ### USB Differential Pair Routing
 
-The USB D+/D- pair requires 90 Ω differential impedance, the same technique covered in Lesson 4:
+USB sends each bit as the difference between D+ and D-, so the two tracks run side by side as one differential pair. The cable and the chip are made for 90 Ω between them, and the track width, the gap and the height above the ground plane set that value. The [STM32 USB-C four-layer board](/education/pcb-design-kicad/stm32-usb-c-four-layer-pcb/) explains how.
 
-- Route as a tightly coupled differential pair on F.Cu
-- Keep the pair on one layer (no vias)
-- Maintain continuous ground plane on In1.Cu beneath the traces
-- Trace width and spacing depend on your stackup geometry (use the KiCad impedance calculator or your fab's stackup tool; typically ~0.2 mm trace width with ~0.15 mm gap for 90 Ω differential on a standard 4-layer 1.6 mm board)
-- Length match D+ and D- within 0.15 mm
-- Keep the total USB trace length under 50 mm
-- Place the 27 Ω series resistors at the RP2040 end, within 5 mm of the MCU pads
+- Route D+ and D- as a differential pair on F.Cu, with no vias
+- Keep the ground plane on In1.Cu whole beneath the pair
+- Take the track width and gap for 90 Ω from the factory's impedance calculator for your stack-up. Start from 0.2 mm width and 0.15 mm gap on a standard 4-layer 1.6 mm board
+- Make D+ and D- equal in length within 0.15 mm
+- Keep the pair shorter than 50 mm
+- Place the 27 Ω series resistors within 5 mm of the RP2040 pads
 
 ### Crystal Routing
 
-The 12 MHz crystal should be placed within 5 mm of the XIN/XOUT pins:
+A crystal track is a sensitive input: extra length adds stray capacitance and picks up noise.
 
-- Route XIN and XOUT traces as short as possible (under 5 mm each)
-- Do not route any other signal between the crystal pads
-- Surround the crystal traces with a ground pour on F.Cu
-- Ensure the ground plane on In1.Cu is solid beneath the crystal area
-- Use 0.2 mm or wider traces for the crystal connections
+- Keep the XIN and XOUT tracks shorter than 5 mm each, and 0.2 mm wide or more
+- Route no other signal between the crystal pads
+- Surround the crystal tracks with a ground pour on F.Cu
+- Keep the ground plane on In1.Cu whole beneath the crystal
 
 ### Decoupling Capacitor Placement
 
-Every power pin on the RP2040 needs a decoupling capacitor placed within 2 mm of the pin. The RP2040 has six IOVDD/IOVSS pin pairs and two DVDD/DVSS pin pairs. Place a 100 nF 0402 capacitor next to each pair. The via from the capacitor pad to the ground plane should be as short as possible (ideally directly adjacent to the pad).
+Place a 100 nF 0402 capacitor within 2 mm of each of the six IOVDD pins and the two DVDD pins. Put the via from the capacitor's ground pad to the ground plane directly beside the pad. Every millimetre of track here slows the pulse of current the capacitor exists to deliver.
 
-For the core voltage regulator, place the 1 µH inductor and its associated capacitors (1 µF on VREG_VIN, 100 nF + 1 µF on VREG_VOUT) within 5 mm of the VREG pins. The inductor, capacitors, and RP2040 VREG pins form a tight loop. Keep this loop area small to minimize radiated EMI from the switching regulator.
+Place the core regulator's capacitors (1 µF on VREG_VIN, 100 nF + 1 µF on VREG_VOUT) within 5 mm of the VREG pins, and make the 1.1V track from VREG_VOUT to the two DVDD pins short and wide.
 
-The USB_VDD pin (pin 48) powers the internal USB PHY. Place a 100 nF capacitor directly at this pin with a short via to the ground plane.
+USB_VDD (pin 48) feeds the USB transceiver inside the chip. Place its 100 nF capacitor at the pin, with a short via to the ground plane.
 
 ### Via Stitching and Ground Pour
 
-Complete the layout with:
+A ground pour on an outer layer helps only where vias join it to the ground plane. Finish the layout with:
 
-- Via stitching around the board perimeter and between ground pour islands (every 3 to 5 mm)
-- Ground pour on both F.Cu and B.Cu connected to the In1.Cu ground plane
-- Via stitching around the USB differential pair (ground vias on both sides, spaced every 2 to 3 mm)
-- Via stitching near the crystal area
-- Check for isolated copper islands in the ground pour and either connect or remove them
+- Ground pour on both F.Cu and B.Cu
+- Stitching vias from the pours to In1.Cu every 3 to 5 mm around the board edge
+- Ground vias on both sides of the USB pair, every 2 to 3 mm, and near the crystal
+- No islands: connect or remove any piece of pour that no via reaches
 
 ## Manufacturing
 
@@ -417,7 +381,7 @@ Complete the layout with:
 
 ### JLCPCB 4-Layer Order Settings
 
-When ordering from JLCPCB (or a similar prototype fab), use these settings as a reference:
+When you order from JLCPCB or a similar factory, start from these settings:
 
 | Setting | Value |
 |---------|-------|
@@ -428,40 +392,42 @@ When ordering from JLCPCB (or a similar prototype fab), use these settings as a 
 | Surface finish | HASL or ENIG |
 | Solder mask | Green (or your preference) |
 | Silkscreen | White |
-| Min trace/space | 0.15 mm / 0.15 mm |
+| Min track/space | 0.15 mm / 0.15 mm |
 | Min via drill | 0.3 mm |
 | Impedance control | Optional (select if available; specify 90 Ω differential for USB) |
 
-**Cost note:** 4-layer PCBs from JLCPCB typically start around $8 to $15 for 5 boards (50 x 22 mm). ENIG surface finish adds $5 to $10 but gives flatter pads for QFN soldering. Impedance control adds cost but guarantees the fab matches your stackup for USB traces.
+**Cost note:** five 4-layer boards of 55 x 22 mm cost about 8 to 15 USD at JLCPCB. HASL is a coat of solder on the pads, and ENIG is a thin, flat coat of gold. ENIG adds 5 to 10 USD, and its flat pads make a QFN easier to solder. Impedance control adds cost, and full-speed USB on a board this small does not need it.
 
 ### Stencil Order
 
-Order a solder paste stencil with your PCBs. Select the top-side stencil (you will hand-place components on one side at a time). Framework stencils (with a metal frame) are easier to align but cost more. Frameless stencils work fine with a simple jig made from spare PCBs taped to a flat surface.
+Order a solder paste stencil for the top side with your boards. A stencil in a metal frame is easier to align but costs more. One without a frame works well with a jig made from spare boards taped to a flat surface.
 
 ## Assembly and Reflow
 
 <InArticleAd />
 
 
-Assembling a QFN board differs significantly from the through-hole and basic SMD boards in earlier lessons. You cannot hand-solder the RP2040 with an iron because the pads are underneath the package. The entire board must go through a reflow process. Here is the step-by-step procedure.
+Solder paste and hot plastic give off fumes, and the board reaches 260 C. Work with moving air, wear eye protection, and hold the hot board with tweezers.
 
 <Steps>
 
-1. Prepare the stencil jig. Tape three spare PCBs (or scrap material of the same thickness) to a flat surface, forming a pocket that holds your target PCB in place. The target PCB should sit flush, with no movement when you press down. Secure the stencil over the PCB so the stencil openings align with all the pads.
+1. Prepare the stencil jig. Tape three spare boards of the same thickness to a flat surface, so they form a pocket that holds your board without movement. Tape the stencil over it with its openings exactly on the pads.
 
-2. Apply solder paste. Place a bead of solder paste along one edge of the stencil. Using a metal squeegee (or an old credit card), draw the paste across the stencil in a single smooth stroke at a 45-degree angle. Lift the stencil carefully. Inspect the paste deposits under magnification. Each pad should have a clean, consistent deposit. The QFN exposed pad should show a grid of paste rectangles, not one solid blob.
+2. Apply solder paste. Put a line of paste along one edge of the stencil. Draw it across with a metal blade (or an old plastic card) in one smooth stroke, at 45 degrees. Lift the stencil straight up. Under a magnifier, each pad has a clean block of paste, and the exposed pad shows a grid of rectangles, not one mass.
 
-3. Place the RP2040. Using fine tweezers, orient the QFN so the pin 1 dot aligns with the pin 1 marker on the silkscreen. Lower the chip gently onto the paste. Do not press hard. The paste is tacky enough to hold the chip in place. Verify alignment under magnification.
+3. Place the RP2040. With fine tweezers, turn the chip so its pin 1 dot is at the pin 1 mark on the board. Lower it onto the paste without pressing. The paste is sticky enough to hold it. Check the position under the magnifier.
 
-4. Place the flash chip. The W25Q128JV in SOIC-8 is easier to place. Align pin 1 (marked with a dot) and set it onto the paste deposits.
+4. Place the flash chip. The W25Q128JV in SOIC-8 has legs and is easier. Put pin 1 (marked with a dot) at its mark.
 
-5. Place remaining SMD components. Work from smallest to largest: 0402 resistors and capacitors first, then the SOT-223 LDO, the crystal, the WS2812B LED, the tactile switches, and the polyfuse. Use tweezers for all placements.
+5. Place the other surface-mount parts, smallest first: 0402 resistors and capacitors, then the SOT-223 LDO, the crystal, the WS2812B LED, the tactile switches, and the polyfuse.
 
-6. **Reflow.** Place the populated board in a reflow oven or position a hot air station above it. Follow a standard lead-free reflow profile: ramp to 150 C over 60 to 90 seconds (preheat/soak), then ramp to a peak of 245 to 260 C for 30 to 60 seconds, then cool. Watch for the solder paste to melt and become shiny. Remove heat and let the board cool naturally. Do not blow compressed air on it (thermal shock can crack components).
+6. **Reflow.** Put the board in a reflow oven, or hold a hot air station above it. Warm it to 150 C over 60 to 90 seconds, then raise it to a peak of 245 to 260 C for 30 to 60 seconds. The paste melts and becomes shiny. Remove the heat and let the board cool in still air: a sudden change of temperature can crack parts.
 
-7. **Solder through-hole headers.** After reflow, flip the board and solder the 2x20 GPIO headers and the SWD header with a standard soldering iron.
+7. **Solder the through-hole headers.** After reflow, solder the two GPIO headers and the SWD header with an ordinary soldering iron.
 
-8. **Inspect QFN solder joints.** You cannot see the QFN pads from above. Instead, inspect the perimeter pads from the side. You should see small solder fillets where the pad meets the QFN package edge. Check for solder bridges between adjacent pads (0.4 mm pitch is tight). If you find bridges, use solder wick and flux to remove them. For the exposed pad, check continuity between the QFN ground and the PCB ground plane.
+8. **Inspect the QFN joints.** Look at the chip's edges from the side. A small, shiny slope of solder joins each pad to the package edge. Solder that joins two neighbouring pads is a bridge: remove it with flux and solder wick. Check with a meter that the chip's ground is joined to the board's ground.
+
+9. **Check before first power.** A wiring fault on a USB board can damage the board and the port that feeds it. With a meter, check that no two of VBUS, 3.3V, 1.1V and GND are joined. Power the new board from a USB charger or a hub first, not from a computer, and measure 3.3V and 1.1V. If a part becomes hot, unplug at once.
 
 </Steps>
 
@@ -472,7 +438,7 @@ Assembling a QFN board differs significantly from the through-hole and basic SMD
 
 ### Entering UF2 Bootloader Mode
 
-The RP2040 has a UF2 bootloader in ROM. No special software is needed to flash firmware:
+The boot ROM of the RP2040 accepts a program as a `.uf2` file. No software is needed on the computer:
 
 <Steps>
 
@@ -488,14 +454,14 @@ The RP2040 has a UF2 bootloader in ROM. No special software is needed to flash f
 
 ### CircuitPython or MicroPython
 
-The fastest way to test the board is with CircuitPython or MicroPython:
+The fastest test of the board is CircuitPython or MicroPython, two versions of Python that run on the chip. Each program below shows red, green and blue in turn on the LED:
 
 <Tabs>
 <TabItem label="CircuitPython">
 
 Download the CircuitPython UF2 for "Raspberry Pi Pico" from [circuitpython.org](https://circuitpython.org/board/raspberry_pi_pico/). Drag the `.uf2` file onto the RPI-RP2 drive. The board reboots and appears as a "CIRCUITPY" drive.
 
-Create a file named `code.py` on the CIRCUITPY drive:
+Copy `neopixel.mpy` from the Adafruit CircuitPython library bundle into the `lib` folder on the CIRCUITPY drive, then create a file named `code.py` on the drive:
 
 ```python
 import board
@@ -578,9 +544,9 @@ The SDK blink example toggles GPIO25 (the onboard LED on the official Pico). To 
 
 ### PIO Example: WS2812B LED Control
 
-One of the most compelling features of the RP2040 is PIO. The WS2812B protocol requires precise timing (800 kHz with specific high/low durations for 0 and 1 bits) that is difficult to achieve reliably with GPIO bit-banging. PIO handles it in hardware.
+The WS2812B reads its colour from one wire at 800,000 bits per second. A 1 is a long high pulse and a 0 is a short one, and the difference is a fraction of a microsecond. A program that switches a pin in a loop cannot hold that timing when an interrupt arrives. A PIO state machine can, because it does nothing else.
 
-Here is the PIO program (from the Pico SDK `ws2812.pio`):
+This is the PIO program (from `ws2812.pio` in the pico-examples repository). Each bit takes T1 + T2 + T3 = 10 clock steps of the state machine:
 
 ```
 ; WS2812B PIO program
@@ -603,9 +569,9 @@ do_zero:
 .wrap
 ```
 
-This program runs on one of the PIO state machines. It shifts out pixel data one bit at a time, generating the precise WS2812B timing entirely in hardware. The CPU just writes pixel color values to the PIO FIFO and moves on.
+The state machine sends the colour data one bit at a time. The processor only writes each colour value into the state machine's queue (its FIFO) and continues with other work, so the timing stays exact whatever the two cores are doing.
 
-The PIO assembler (`pioasm`, included in the Pico SDK build) compiles `.pio` files into C headers that you include in your firmware. The state machine runs independently of both CPU cores, so LED updates happen with zero jitter even while the cores handle other tasks.
+The PIO assembler (`pioasm`, built with the Pico SDK) turns a `.pio` file into a C header that you include in your program.
 
 ## What You Have Learned
 
@@ -614,32 +580,18 @@ The PIO assembler (`pioasm`, included in the Pico SDK build) compiles `.pio` fil
 
 <Card title="Lesson 7 Complete" icon="approve-check">
 
-**KiCad skills:**
-- Designed a QFN-56 footprint with exposed thermal pad and thermal via array
-- Routed high-speed QSPI traces with length matching within 5 mm tolerance
-- Implemented a 4-layer stackup with dedicated ground and power planes
-- Managed multiple power domains (5V USB, 3.3V I/O, 1.1V core) in a single design
-- Applied USB differential pair routing with impedance targeting
-- Used solder paste stencil layer modifications for QFN exposed pad
+**In KiCad** you checked a QFN-56 footprint with its exposed pad, paste grid and thermal vias, routed six QSPI tracks to equal length, routed the USB pair over a ground plane, and laid out three supplies (5V, 3.3V and 1.1V) on four layers.
 
-**Electronics skills:**
-- RP2040 minimal circuit design (external QSPI flash, crystal, dual voltage rails)
-- QFN package soldering process (stencil, paste, reflow)
-- QSPI flash memory interface and boot mechanism
-- USB-C connector wiring with CC pull-down resistors
-- WS2812B addressable LED interfacing
-- Core voltage regulator design with external inductor
+**In electronics** you built the smallest working RP2040 circuit: external flash, crystal, the capacitors of the internal linear core regulator (no inductor), USB-C with its CC resistors, and an RGB LED.
 
-**Firmware skills:**
-- UF2 bootloader workflow (BOOTSEL, drag-and-drop programming)
-- CircuitPython, MicroPython, and C/C++ SDK toolchain options
-- PIO state machine programming for the WS2812B protocol
-- Understanding of the RP2040 boot sequence (ROM bootloader, XIP from flash)
+**In assembly** you soldered a QFN with stencil, paste and reflow, and checked the board with a meter before first power.
+
+**In firmware** you loaded a program as a UF2 file through BOOTSEL, with CircuitPython, MicroPython or the C SDK, and read a PIO program that drives the WS2812B.
 
 </Card>
 
 :::tip[Next Lesson]
-In [Lesson 8: Motor Driver and Sensor Integration Board](/education/pcb-design-kicad/motor-driver-sensor-integration-board), you will design a purpose-built control board that combines an MCU with H-bridge motor drivers, encoder inputs, and multiple sensor interfaces. This introduces power electronics layout, high-current trace design, and mixed-signal routing to keep motor noise from corrupting sensor readings.
+In the [motor driver and sensor integration board](/education/pcb-design-kicad/motor-driver-sensor-integration-board/) you put an MCU, motor drivers and sensors on one board. It adds wide tracks for high current, and a layout that keeps motor noise away from sensor readings.
 :::
 
 <PcbDesignKicadComments />

@@ -25,35 +25,36 @@ import { Card, CardGrid, Badge, Steps, LinkButton, FileTree } from '@astrojs/sta
 
 import PcbDesignKicadComments from '../../../../components/pcb-design-kicad/PcbDesignKicadComments.astro';
 
-A development board running an ESP32 draws 40 to 80 mA even in idle, which drains a small lithium cell in a day or two. For a sensor node deployed outdoors or in a hard-to-reach location, you need a purpose-built board where every component is chosen for minimal quiescent current: a low-Iq LDO instead of a dev board's wasteful regulator, a charging IC that can top up from a solar panel, and a layout that keeps leakage paths short. In this lesson you will design that board around the ESP32-C3-MINI-1, with TP4056 lithium charging, solar input, battery protection, and a power budget targeting months of operation on a single cell. #KiCad #ESP32 #IoT
+An ESP32 development board takes 40 to 80 mA when it does nothing, and that empties a small lithium cell in less than a day. A sensor that must work in a field for months needs a board of its own, where every part is chosen for the current it takes while the node sleeps, and where the cell is charged and protected safely. In this lesson you design that board around the ESP32-C3-MINI-1 module, with a lithium charger, solar input, battery protection, and a power budget of months on one cell. #KiCad #ESP32 #IoT
+
+The energy goes from two sources, through the cell, to two loads:
 
 ```text
-  Power System Block Diagram
-  ──────────────────────────────────────────
-  Solar Panel ──►┐
-  (5V, 200mA)    │
+  Solar panel ──►┐
+  (5V)           │
                  ▼
-  USB-C (5V) ──► TP4056 ──► DW01A + 8205A
-                 (charger)  (battery protection)
+  USB-C (5V) ──► TP4056 ──► protection
+                 (charger)  (DW01A + 8205A)
                      │           │
                      ▼           ▼
-                 Li-Po Battery (3.7V, 1000mAh)
+                 lithium cell (3.7V, 500mAh)
                      │
                      ▼
-                 ME6211 LDO ──► 3.3V rail
-                 (Iq ~40uA)      │
-                                 ├──► ESP32-C3
-                                 └──► BME280
-
-  Deep sleep: ESP32 ~5uA + LDO ~40uA
-            = ~45uA total board current
+                 ME6211 LDO ──► 3.3V ──► ESP32-C3
+                 (regulator)        └──► BME280
 ```
 
 ## What We Are Building
 
 <Card title="Battery-Powered ESP32-C3 IoT Sensor Node" icon="star">
-A compact wireless sensor node that monitors temperature, humidity, and barometric pressure using a BME280. The ESP32-C3 wakes from deep sleep every 10 minutes, reads the sensor, transmits data over WiFi or BLE, and returns to sleep. A TP4056 charges the lithium battery from USB-C or a small solar panel. The entire board targets under 10 µA sleep current for months of autonomous operation.
+A wireless sensor node that measures temperature, humidity and air pressure with a BME280. The ESP32-C3 wakes from deep sleep every 10 minutes, reads the sensor, sends the data over WiFi or BLE, and sleeps again. A TP4056 charges the lithium cell from USB-C or a small solar panel. The board takes about 50 µA while it sleeps.
 </Card>
+
+Three terms:
+
+- In deep sleep the ESP32 switches off almost everything and takes a few microamperes, until a timer wakes it.
+- Quiescent current (Iq) is the current a part takes for itself when its load takes nothing.
+- An LDO (low dropout regulator) makes a steady 3.3V from the cell, whose voltage falls from 4.2V to 3.0V as it empties.
 
 **Board specifications:**
 
@@ -67,7 +68,7 @@ A compact wireless sensor node that monitors temperature, humidity, and barometr
 | Protection | DW01A + 8205A (overcurrent, overdischarge, overcharge) |
 | Regulator | ME6211 3.3V LDO (500 mA, ~40 µA quiescent) |
 | USB | USB-C (charging + native USB programming) |
-| Deep Sleep | Target under 10 µA total board current |
+| Deep Sleep | About 50 µA total board current (the LDO's 40 µA dominates) |
 | Size | ~45 x 30 mm |
 
 ### Bill of Materials
@@ -75,39 +76,18 @@ A compact wireless sensor node that monitors temperature, humidity, and barometr
 | Ref | Component | Package | Qty | Notes |
 |-----|-----------|---------|-----|-------|
 | U1 | ESP32-C3-MINI-1 | Module (13.2 x 16.6 mm) | 1 | PCB antenna, RISC-V core |
-| U2 | TP4056 | SOP-8 | 1 | Linear Li-Ion/Li-Po charger |
+| U2 | TP4056 | ESOP-8 (SOP-8 with exposed pad) | 1 | Linear Li-Ion/Li-Po charger |
 | U3 | DW01A | SOT-23-6 | 1 | Battery protection IC |
 | U4 | ME6211C33M5G | SOT-23-5 | 1 | 3.3V 500 mA LDO |
 | U5 | BME280 | LGA-8 (2.5 x 2.5 mm) | 1 | Environmental sensor |
 | Q1 | 8205A | TSSOP-8 | 1 | Dual N-MOSFET for battery protection |
 
-```text
-  Component Placement Zones (top view)
-  ──────────────────────────────────────────
-  ┌──────────────────────────────────────┐
-  │  ┌────────┐   ┌──────────────────┐  │
-  │  │ USB-C  │   │   ESP32-C3-MINI  │  │
-  │  │ + ESD  │   │   (WiFi/BLE)     │  │
-  │  └────────┘   │                  │  │
-  │               │    ┌─────┐       │  │
-  │  ┌────────┐   │    │Ante-│       │  │
-  │  │TP4056  │   │    │nna  │KEEPOUT│  │
-  │  │charger │   └────┴─────┴───────┘  │
-  │  └────────┘                         │
-  │  ┌────────┐   ┌──────┐             │
-  │  │DW01A + │   │BME280│ ◄─away from │
-  │  │8205A   │   │sensor│   heat      │
-  │  └────────┘   └──────┘   sources   │
-  │  ┌─────────────────┐               │
-  │  │ JST battery conn │               │
-  │  └─────────────────┘               │
-  └──────────────────────────────────────┘
-```
+The smaller parts:
 
 | Reference | Value | Package | Qty | Function |
 |-----------|-------|---------|-----|----------|
 | Q2 | SI2301 | SOT-23 | 1 | P-MOSFET for sensor power switching |
-| J1 | USB-C receptacle | USB-C 6-pin | 1 | Charging and programming |
+| J1 | USB-C receptacle | USB-C 16-pin | 1 | Charging and programming |
 | J2 | JST-PH 2-pin | Through-hole | 1 | Battery connector |
 | J3 | JST-PH 2-pin | Through-hole | 1 | Solar panel connector |
 | D1 | SS14 | SMA | 1 | Schottky diode, solar input |
@@ -115,11 +95,11 @@ A compact wireless sensor node that monitors temperature, humidity, and barometr
 | LED1 | Red LED | 0603 | 1 | Charging indicator |
 | LED2 | Green LED | 0603 | 1 | Standby indicator |
 | R1, R2 | 5.1 kΩ | 0402 | 2 | USB-C CC1, CC2 pull-downs |
-| R3 | 2 kΩ | 0402 | 1 | TP4056 PROG (500 mA charge) |
+| R3 | 2.4 kΩ | 0402 | 1 | TP4056 PROG (500 mA charge) |
 | R4 | 1 kΩ | 0402 | 2 | LED current limiting |
-| R5 | 10 kΩ | 0402 | 1 | ESP32-C3 EN pull-up |
+| R5 | 100 kΩ | 0402 | 1 | ESP32-C3 EN pull-up |
 | R6, R7 | 10 kΩ | 0402 | 2 | I2C pull-ups (SDA, SCL) |
-| R8 | 100 kΩ | 0402 | 1 | DW01A pull-down |
+| R8 | 1 kΩ | 0402 | 1 | DW01A CS sense resistor |
 | R9 | 100 kΩ | 0402 | 1 | Sensor power MOSFET gate pull-up |
 | C1, C2 | 10 µF | 0805 | 2 | LDO input and output |
 | C3 | 100 nF | 0402 | 1 | LDO output |
@@ -134,70 +114,78 @@ A compact wireless sensor node that monitors temperature, humidity, and barometr
 <InArticleAd />
 
 
-The power system is the heart of any battery-operated design. A poorly designed power path can drain a battery in days. This section covers each stage of the power chain, from charging through regulation, and explains how each component contributes to the total sleep current budget.
+Each stage of the power system also takes a little current for itself, all day, and those small currents decide how long the node sleeps on one charge.
+
+:::caution[Lithium cells]
+A lithium cell can catch fire if it is short-circuited, overcharged or connected backwards. Use a cell with its own protection circuit. Sellers do not all wire this type of connector the same way, so check the polarity with a meter before you connect a cell. Stay with the board for its first charge, and stop if the cell or the charger becomes hot. This board uses 5V sources only, never mains.
+:::
 
 ### Battery Charging: TP4056
 
-The TP4056 is a complete constant-current, constant-voltage linear charger for single-cell lithium batteries. It charges to 4.2V and automatically terminates when the charge current drops below a threshold (typically 1/10 of the programmed current).
+A lithium cell is charged in two phases. First the charger holds the current constant while the cell voltage rises. At 4.2V it holds the voltage constant, and the current falls by itself. Above 4.2V the cell is damaged. The TP4056 does both phases and ends the charge when the current has fallen to about 1/10 of the set value.
 
 Key connections:
 
-- **PROG pin:** A resistor from PROG to GND sets the charge current. For 500 mA charging, use a 2 kΩ resistor. For solar charging with a small panel (100 mA), you might use a 10 kΩ resistor instead.
-- **VIN:** Connect to the USB-C VBUS or solar panel output through the diode-OR network.
-- **BAT:** Connect to the battery through the DW01A protection circuit.
-- **CHRG and STDBY:** Open-drain outputs that drive the charging and standby indicator LEDs.
+- PROG: a resistor to GND that sets the charge current.
+- VIN: the USB-C VBUS or the solar panel, through the diode-OR network.
+- BAT: the positive terminal of the cell.
+- CHRG and STDBY: open-drain outputs for the charging and standby LEDs.
 
-**Charge current reference:**
+The datasheet gives the charge current $I_{\text{BAT}}$ in amperes from the resistor $R_{\text{PROG}}$ in ohms:
 
-| PROG Resistor | Charge Current |
-|---------------|---------------|
-| 10 kΩ | 130 mA |
-| 5 kΩ | 250 mA |
-| 2 kΩ | 500 mA |
-| 1.2 kΩ | 830 mA |
-| 1 kΩ | 1000 mA |
+$$I_{\text{BAT}} = \frac{1200}{R_{\text{PROG}}}$$
+
+A smaller resistor gives a larger current. The maker's table of measured values differs by a few percent:
+
+| PROG Resistor | By the formula | Maker's table |
+|---------------|---------------|---------------|
+| 10 kΩ | 120 mA | 130 mA |
+| 5 kΩ | 240 mA | 250 mA |
+| 2.4 kΩ | 500 mA | not listed |
+| 2 kΩ | 600 mA | 580 mA |
+| 1.2 kΩ | 1000 mA | 1000 mA |
+
+The cell decides the value. Most small cells allow a charge current of 0.5 to 1 times their capacity: 250 to 500 mA for a 500 mAh cell. This board uses 2.4 kΩ, which gives 1200 / 2400 = 0.5 A, the upper limit for that cell. A smaller cell needs a larger resistor, and so does a small solar panel (10 kΩ for about 100 mA).
 
 ### Solar and USB Input: Diode-OR
 
-The board accepts power from either USB-C or a solar panel. A diode-OR network using two Schottky diodes (SS14) connects both sources to the TP4056 VIN pin. Whichever source has the higher voltage forward-biases its diode and supplies current. The Schottky diodes have low forward voltage drop (~0.3V), minimizing power loss.
+Two sources feed one charger, and neither may push current into the other. A diode passes current in one direction only, so each source gets its own Schottky diode (SS14, which loses only about 0.3V) to the TP4056 VIN pin. This is a diode-OR: the source with the higher voltage supplies the current.
 
-The circuit is straightforward:
-
-- USB VBUS connects through D2 (SS14) to TP4056 VIN.
-- Solar panel output connects through D1 (SS14) to TP4056 VIN.
+- USB VBUS connects through D2 to TP4056 VIN.
+- The solar panel connects through D1 to TP4056 VIN.
 - A 10 µF capacitor on VIN smooths the input.
 
-When both sources are present, USB typically wins because the solar panel open-circuit voltage is usually around 5 to 6V and drops under load, while USB provides a stable 5V.
+When both are present, USB usually supplies the current: the voltage of a small panel falls under load, and USB holds 5V.
 
 ### Battery Protection: DW01A + 8205A
 
-The DW01A is a lithium battery protection IC that monitors the cell voltage and current. It controls the 8205A, a dual N-channel MOSFET that sits in the battery's ground path. Together they protect against three failure modes.
+The charger protects the cell only while it charges. The protection circuit watches the cell all the time and disconnects it in three cases:
 
-| Protection | Threshold | Action |
-|-----------|-----------|--------|
-| Overcharge | ~4.3V | Disconnects charge path |
-| Overdischarge | ~2.4V | Disconnects load |
-| Overcurrent | ~3A | Disconnects load |
+| Protection | Threshold | Action | What it prevents |
+|-----------|-----------|--------|------------------|
+| Overcharge | ~4.3V | Disconnects charge path | Overheating and fire, if the charger fails |
+| Overdischarge | ~2.4V | Disconnects load | A cell emptied so far that it is damaged for good |
+| Overcurrent | ~3A | Disconnects load | Heat and fire from a short circuit |
 
-The DW01A connects between B+ and B- of the battery. Its OD and OC pins drive the gates of the two MOSFETs in the 8205A. The 8205A sits between the battery negative terminal and system ground. When a fault is detected, the appropriate MOSFET turns off, disconnecting the battery.
+The DW01A measures the cell: its supply pins connect between B+ and B-, the two terminals of the cell. The 8205A is a pair of N-channel MOSFETs, used as two switches in series in the negative line, between B- and system ground. The DW01A's OD pin (discharge control) drives one gate and its OC pin (charge control) drives the other. On a fault it switches one MOSFET off, and the cell is disconnected.
+
+This circuit does not protect against a cell connected backwards: check the polarity with a meter.
 
 ### Voltage Regulation: ME6211 LDO
 
-The ME6211C33M5G provides a stable 3.3V output from the battery voltage (3.0V to 4.2V). Its key advantage for battery applications is the very low quiescent current, approximately 40 µA. This is the current the regulator itself consumes even when the load draws nothing. For a broader look at LDO selection, switching regulators, and power rail design, see [Analog Electronics: Power Supply Design](/education/analog-electronics/power-supply-design/).
+The ME6211C33M5G makes a steady 3.3V from the cell voltage (3.0V to 4.2V). It is chosen for its quiescent current of about 40 µA: a common regulator such as the AMS1117 takes about 5 mA for itself, a hundred times more, and would empty the cell in a few days. For more on choosing a regulator, see [Analog Electronics: Power Supply Design](/education/analog-electronics/power-supply-design/).
 
-- **Input:** Battery voltage (3.0V to 4.2V from the protected output)
-- **Output:** 3.3V, up to 500 mA
-- **Dropout voltage:** ~100 mV at light loads
-- **Input capacitor:** 10 µF ceramic
-- **Output capacitors:** 10 µF ceramic + 100 nF ceramic
+- Output: 3.3V, up to 500 mA
+- Dropout voltage: ~100 mV at light loads
+- Capacitors: 10 µF ceramic at the input, 10 µF and 100 nF ceramic at the output
 
 :::caution[LDO Dropout]
-When the battery voltage drops below ~3.4V, the LDO enters dropout and the output voltage follows the input. The ESP32-C3 operates down to about 3.0V, so the system continues working until the DW01A cuts off at ~2.4V. In practice, WiFi transmission becomes unreliable below about 3.1V.
+A regulator needs its input a little above its output. Below about 3.4V at the cell, the LDO output follows the cell downward. The ESP32-C3 still works down to about 3.0V, but WiFi becomes unreliable below about 3.1V. The DW01A disconnects the cell at ~2.4V.
 :::
 
 ### Power Budget Calculation
 
-Understanding your total sleep current is critical for estimating battery life. Every component that remains powered during deep sleep contributes to the total.
+A power budget is a list of every current the cell must supply. Start with the parts that stay powered during deep sleep:
 
 | Component | Sleep Current | Notes |
 |-----------|--------------|-------|
@@ -209,31 +197,33 @@ Understanding your total sleep current is critical for estimating battery life. 
 | Pull-up/pull-down resistors | ~1 µA | Depends on values chosen |
 | **Total sleep current** | **~51 µA** | Conservative estimate |
 
+The node takes a large current for a short time and a small one for a long time. The cell sees the average: the sleep current, plus the wake current multiplied by the fraction of time the node is awake. The battery life in hours is the capacity in mAh divided by the average current in mA.
+
 **Battery life estimate with a 500 mAh cell:**
 
 - Sleep current: ~51 µA
-- Wake current: ~80 mA for WiFi TX, ~5 mA for sensor read
-- Wake duration: ~5 seconds every 10 minutes (0.83% duty cycle)
-- Average current: 51 µA + (80 mA x 0.0083) ≈ 51 µA + 664 µA ≈ 715 µA
-- Battery life: 500 mAh / 0.715 mA ≈ 699 hours ≈ **29 days with WiFi**
+- Wake current: ~80 mA while the WiFi radio transmits
+- Wake duration: ~5 seconds every 10 minutes, a fraction of 5 / 600 = 0.0083
+- Average current: $51\,\mu\text{A} + (80\,\text{mA} \times 0.0083) \approx 51\,\mu\text{A} + 664\,\mu\text{A} \approx 715\,\mu\text{A}$
+- Battery life: $500\,\text{mAh} / 0.715\,\text{mA} \approx 699\,\text{hours} \approx$ **29 days with WiFi**
 
-For BLE-only transmission (peak ~15 mA, wake ~2 seconds):
+The 5 seconds awake use more than nine tenths of the energy. For BLE-only transmission (peak ~15 mA, wake ~2 seconds, a fraction of 2 / 600 = 0.0033):
 
-- Average current: 51 µA + (15 mA x 0.0033) ≈ 51 µA + 50 µA ≈ 101 µA
-- Battery life: 500 mAh / 0.101 mA ≈ 4950 hours ≈ **206 days**
+- Average current: $51\,\mu\text{A} + (15\,\text{mA} \times 0.0033) \approx 51\,\mu\text{A} + 50\,\mu\text{A} \approx 101\,\mu\text{A}$
+- Battery life: $500\,\text{mAh} / 0.101\,\text{mA} \approx 4950\,\text{hours} \approx$ **206 days**
 
-With a small solar panel providing even modest charging on sunny days, the system can run indefinitely.
+These are upper estimates: a cell also loses a few percent of its charge each month by itself. A small solar panel can keep the node running without a visit.
 
 ## Deep Sleep Considerations for PCB Design
 
 <InArticleAd />
 
 
-Designing for low sleep current is not just a firmware problem. The PCB itself can waste microamps through pull-up resistors, indicator LEDs, and always-on peripherals. This section covers the hardware design choices that make deep sleep effective.
+Firmware puts the chip to sleep, but the board can still waste current through pull-up resistors, LEDs and parts that stay powered. With BLE, half of the average current is sleep current, so every microampere counts.
 
 ### Resistor Values Matter
 
-Every pull-up or pull-down resistor that connects a voltage rail to ground (through a GPIO or other node) creates a constant current leak. For a 3.3V rail:
+A pull-up resistor holds a pin high. When the pin is held low, current flows from the 3.3V rail through the resistor to ground, all day. The current is 3.3V divided by the resistance:
 
 | Resistor Value | Leak Current |
 |---------------|-------------|
@@ -242,54 +232,60 @@ Every pull-up or pull-down resistor that connects a voltage rail to ground (thro
 | 47 kΩ | 70 µA |
 | 100 kΩ | 33 µA |
 
-**Rules for battery-powered designs:**
+One 10 kΩ resistor that leaks all day takes six times the sleep current of the whole board. So:
 
-- Use 100 kΩ or higher for pull-ups/pull-downs where possible
-- I2C pull-ups: use 10 kΩ instead of the common 4.7 kΩ. At 100 kHz I2C clock speed, 10 kΩ works reliably for short bus lengths (under 10 cm on a PCB)
-- The EN pin pull-up on the ESP32-C3 can be 100 kΩ with a 1 µF capacitor for slow rise time
+- Use 100 kΩ or higher for pull-ups and pull-downs where possible
+- For the I2C pull-ups, use 10 kΩ in place of the common 4.7 kΩ. The I2C lines rest high, so these resistors leak only while data moves. At a 100 kHz clock, 10 kΩ works for a bus shorter than 10 cm
+- The EN pin pull-up on the ESP32-C3 can be 100 kΩ with a 1 µF capacitor
 
 ### LED Power Waste
 
-A typical indicator LED draws 5 to 20 mA. If a power LED stays on during deep sleep, it dominates the entire current budget. Solutions:
+An indicator LED takes 5 to 20 mA: a power LED left on during deep sleep takes a hundred times more than the rest of the board. You can:
 
-- **Remove the power LED entirely** (simplest approach for deployed sensor nodes)
-- **Add a solder jumper** in series with the LED, so you can cut the trace after debugging
-- **Gate the LED with a MOSFET** controlled by a GPIO (only illuminate when the processor is awake)
+- Leave the power LED off the board (the simplest choice for a node in the field)
+- Add a solder jumper in series with the LED, and open it after testing
+- Switch the LED with a GPIO, so it lights only when the processor is awake
 
-In this design, the TP4056 CHRG and STDBY LEDs only illuminate during charging, so they do not affect sleep current when running on battery alone.
+On this board the CHRG and STDBY LEDs are fed from the charger input, so they take nothing from the cell.
 
 ### Switchable Sensor Power
 
-The BME280 draws about 0.1 µA in sleep mode, which is negligible. However, for sensors that draw more idle current, or to ensure a clean sensor startup, you can switch the sensor's power rail using a P-channel MOSFET controlled by a GPIO.
+The BME280 takes about 0.1 µA in its sleep mode, but other sensors take much more when idle. A P-channel MOSFET in the sensor's supply line, controlled by a GPIO, removes that current and gives the sensor a clean start each time.
 
 The circuit uses a SI2301 P-MOSFET:
 
-- **Source:** 3.3V rail
-- **Drain:** Sensor VCC (BME280 VDD)
-- **Gate:** GPIO pin through a 100 kΩ pull-up to 3.3V
+- Source: 3.3V rail
+- Drain: sensor supply (BME280 VDD)
+- Gate: GPIO pin, with a 100 kΩ pull-up to 3.3V
 
-When the GPIO drives LOW, the MOSFET turns on and powers the sensor. When the GPIO is HIGH (or floating during deep sleep with the pull-up), the MOSFET turns off and the sensor draws zero current.
+A P-channel MOSFET switches on when its gate is below its source. When the GPIO drives LOW, the MOSFET is on and the sensor has power. When the GPIO is HIGH, or floating during deep sleep (the pull-up then holds the gate high), the MOSFET is off and the sensor takes nothing.
 
 ### USB-UART Bridge Current
 
-Many ESP32 development boards include a CP2102 or CH340 USB-to-UART bridge chip. These draw 5 to 15 mA even when idle, which destroys battery life. The ESP32-C3 has native USB support built into the chip, eliminating the need for an external bridge. This saves board space, BOM cost, and significant sleep current.
+Many ESP32 boards carry a separate USB-to-UART chip (CP2102 or CH340) for programming, which takes 5 to 15 mA even when idle. The ESP32-C3 has USB built into the chip, so this board needs no such part.
 
 ## Schematic Capture
 
 <InArticleAd />
 
 
-Open KiCad 9 and create a new project named "esp32c3-iot-sensor". The schematic has five functional blocks: USB-C input, battery charging and protection, voltage regulation, ESP32-C3 module, and the BME280 sensor with switchable power. Lay out each block in its own area of the schematic sheet.
+Open KiCad 9 and create a new project named "esp32c3-iot-sensor". The schematic has five blocks: USB-C input, battery charging and protection, voltage regulation, ESP32-C3 module, and the BME280 sensor with its power switch. Give each block its own area of the sheet.
 
 <LinkButton href="https://github.com/SiliconWit/pcb-design-kicad/blob/main/schematics/esp32-battery-iot-sensor-node.pdf" target="_blank" variant="secondary" icon="document">Download Schematic PDF</LinkButton>
+
+:::caution[Do not build the charger from the PDF]
+The PDF is an earlier drawing. Its PROG resistor is 1.2 kΩ, which sets a charge current of 1 A. That is too much for the 500 mAh cell of this lesson and can overheat it. Use the 2.4 kΩ value given in the text.
+
+The PDF also shows the bare ESP32-C3 chip in place of the module, the regulator fed from 5V, I2C on other pins, and no sensor power switch. Where the two differ, follow the text.
+:::
 
 ### USB-C Connector
 
 <Steps>
 
-1. **Place the USB-C connector (6-pin simplified)**
+1. **Place the USB-C connector (16-pin, USB 2.0)**
 
-   For a power and programming connection, you only need VBUS, GND, D+, D-, CC1, and CC2. Place two 5.1 kΩ resistors from CC1 and CC2 to GND. These tell the USB host that this is a device requesting default USB power (5V, up to 500 mA).
+   For power and programming you need six signals: VBUS, GND, D+, D-, CC1, and CC2. Use a 16-pin USB 2.0 receptacle, because the 6-pin USB-C parts carry power only and have no data pins. Place two 5.1 kΩ resistors from CC1 and CC2 to GND. A USB-C source gives no power until it sees this resistance: 5.1 kΩ is the value that means "a device is connected, supply 5V".
 
    Connect VBUS through Schottky diode D2 to the TP4056 VIN net.
 
@@ -309,15 +305,15 @@ Open KiCad 9 and create a new project named "esp32c3-iot-sensor". The schematic 
 
 2. **Set the charge current**
 
-   Place a 2 kΩ resistor from the PROG pin to GND. This programs a 500 mA charge current. If using a small solar panel as the primary source, consider 10 kΩ (130 mA) to match the panel's output capability.
+   Place a 2.4 kΩ resistor from the PROG pin to GND, for 1200 / 2400 = 0.5 A, the limit of a 500 mAh cell. If a small solar panel is the main source, 10 kΩ (120 mA by the formula) matches what the panel can give.
 
 3. **Add status LEDs**
 
-   Connect CHRG to LED1 (red) through a 1 kΩ resistor to VIN. Connect STDBY to LED2 (green) through a 1 kΩ resistor to VIN. Both pins are open-drain, so they sink current through the LEDs.
+   Connect CHRG to LED1 (red) through a 1 kΩ resistor to VIN. Connect STDBY to LED2 (green) through a 1 kΩ resistor to VIN. Both pins are open-drain: they switch the LED current to ground.
 
 4. **Connect BAT to the protection circuit**
 
-   The TP4056 BAT pin connects to the positive terminal of the DW01A protection circuit (B+ net).
+   The TP4056 BAT pin connects to the B+ net, the positive terminal of the cell.
 
 </Steps>
 
@@ -329,33 +325,35 @@ Open KiCad 9 and create a new project named "esp32c3-iot-sensor". The schematic 
 
    Use a JST-PH 2-pin connector. Connect the positive pin through Schottky diode D1 to the TP4056 VIN net (same net as the USB diode output).
 
-2. **Add reverse polarity protection**
+2. **Check the diode direction**
 
-   The Schottky diode D1 also prevents current from flowing back into the solar panel when USB is connected or the battery voltage exceeds the panel voltage.
+   D1 has its anode on the panel and its cathode on VIN. It stops current from flowing back into the panel when USB is connected or when the panel is dark.
 
 </Steps>
 
 ### Battery Protection Circuit
 
+System ground (GND) and B- are separate nets. The two MOSFETs sit between them, so the board reaches the cell's negative terminal only through the protection.
+
 <Steps>
 
 1. **Place the DW01A**
 
-   Connect VCC to B+ (battery positive). Connect VSS to the drain of the low-side MOSFET in the 8205A. The OD (overdischarge) and OC (overcharge/overcurrent) pins connect to the gates of the two MOSFETs in the 8205A.
+   Connect VCC to B+ (battery positive). Connect GND (VSS) to B- (battery negative). The OD (discharge control) and OC (charge control) pins connect to the gates of the two MOSFETs in the 8205A.
 
 2. **Place the 8205A dual MOSFET**
 
-   The 8205A contains two N-channel MOSFETs in series. Connect the source of one MOSFET to the battery negative terminal (B-). Connect the drain of the other MOSFET to system ground (GND). The gates connect to the DW01A OD and OC pins.
+   The 8205A contains two N-channel MOSFETs in series, with their drains joined inside the package. Connect the source of one MOSFET to the battery negative terminal (B-). Connect the source of the other MOSFET to system ground (GND). The gates connect to the DW01A OD pin (the MOSFET on the B- side) and OC pin (the MOSFET on the GND side).
 
 3. **Add the current sense resistor path**
 
-   Place a 100 kΩ resistor from the DW01A CS pin to the junction between the two MOSFETs. This is the current sense input for overcurrent detection.
+   Place a 1 kΩ resistor (R8) from the DW01A CS pin to system ground (GND), which is the far side of the two MOSFETs from the battery. The CS pin measures the voltage across both MOSFETs. That voltage rises with the load current, so it shows an overcurrent.
 
 </Steps>
 
 ### Battery Connector
 
-Place a JST-PH 2-pin connector (J2) for the battery. Connect the positive pin to B+ (feeding into the DW01A protection). Connect the negative pin to B- (battery ground, before the protection MOSFETs).
+Place a JST-PH 2-pin connector (J2) for the battery. Connect the positive pin to B+ and the negative pin to B- (not to GND). Mark the polarity beside the connector on the silkscreen, so a cell can be checked before it is plugged in.
 
 ### ME6211 LDO
 
@@ -363,15 +361,15 @@ Place a JST-PH 2-pin connector (J2) for the battery. Connect the positive pin to
 
 1. **Place the ME6211C33M5G**
 
-   Connect VIN to the protected battery output (the system side of the 8205A, which is the node between the TP4056 BAT pin and the load). Place a 10 µF input capacitor close to VIN.
+   Connect VIN to the B+ net (the same net as the TP4056 BAT pin) and the ground pin to system GND, so the load current returns through the protection MOSFETs. Place a 10 µF input capacitor close to VIN.
 
 2. **Add output capacitors**
 
-   Place a 10 µF ceramic and a 100 nF ceramic on the 3.3V output, close to the VOUT pin. The ME6211 requires at least 1 µF output capacitance for stability.
+   Place a 10 µF and a 100 nF ceramic on the 3.3V output, close to the VOUT pin. The ME6211 needs at least 1 µF there to stay stable.
 
 3. **Connect EN**
 
-   Tie the enable pin directly to VIN so the regulator is always on when battery voltage is present.
+   Tie the enable pin to VIN, so the regulator is on whenever the cell is connected.
 
 </Steps>
 
@@ -381,27 +379,27 @@ Place a JST-PH 2-pin connector (J2) for the battery. Connect the positive pin to
 
 1. **Place the module**
 
-   The ESP32-C3-MINI-1 has castellated pads around its edges and a large ground pad underneath. Connect VCC (pin 2) to the 3.3V rail. Connect all GND pins and the exposed pad to GND.
+   The module has its pads on the underside (no castellations) and a large ground pad in the centre. Connect 3V3 (pin 3) to the 3.3V rail, and all GND pins and the centre pad to GND.
 
 2. **Add decoupling**
 
-   Place a 10 µF bulk capacitor and a 100 nF capacitor close to the VCC pin.
+   Place a 10 µF and a 100 nF capacitor close to the 3V3 pin. They supply the bursts of current the radio takes.
 
 3. **EN (enable) circuit**
 
-   Connect a 100 kΩ pull-up resistor from EN to 3.3V. Add a 1 µF capacitor from EN to GND for a slow rise time, which ensures reliable startup. Connect the reset button (SW1) between EN and GND.
+   Connect a 100 kΩ pull-up from EN to 3.3V and a 1 µF capacitor from EN to GND. Together they hold EN low for a moment at power-on, until the supply is steady. Connect the reset button (SW1) between EN and GND.
 
 4. **Boot button**
 
-   Connect SW2 between GPIO9 and GND. Holding GPIO9 low during reset puts the ESP32-C3 into download mode for flashing firmware over USB.
+   Connect SW2 between GPIO9 and GND. GPIO9 held low during reset puts the ESP32-C3 into download mode, to load firmware over USB.
 
 5. **I2C pins for BME280**
 
-   Assign GPIO4 as SDA and GPIO5 as SCL. Place 10 kΩ pull-up resistors from each to the 3.3V rail.
+   Use GPIO4 as SDA and GPIO5 as SCL, each with a 10 kΩ pull-up to the 3.3V rail.
 
 6. **Sensor power control**
 
-   Assign GPIO3 as the sensor power control pin. Connect it to the gate of the P-MOSFET (Q2) through a 100 Ω gate resistor for EMI damping.
+   Connect GPIO3 to the gate of the P-MOSFET (Q2) through a 100 Ω resistor, which softens the switching edge.
 
 </Steps>
 
@@ -411,15 +409,15 @@ Place a JST-PH 2-pin connector (J2) for the battery. Connect the positive pin to
 
 1. **Place the BME280**
 
-   The BME280 comes in a tiny LGA-8 package (2.5 x 2.5 mm). Connect VDD to the switched 3.3V rail (drain of Q2). Connect GND to ground. Place a 100 nF decoupling capacitor close to VDD.
+   The BME280 is in a small LGA-8 package (2.5 x 2.5 mm). Connect VDD to the switched 3.3V rail (drain of Q2) and GND to ground, with a 100 nF capacitor close to VDD.
 
 2. **Set the I2C address**
 
-   Connect the SDO pin to GND for I2C address 0x76, or to VDD for address 0x77. GND is the more common choice.
+   Connect SDO to GND for I2C address 0x76 (the usual choice), or to VDD for 0x77.
 
 3. **Connect I2C**
 
-   Connect SDA to GPIO4 and SCL to GPIO5 on the ESP32-C3. The pull-up resistors are already on the main 3.3V rail, which means I2C communication works even when the sensor power MOSFET is off (the pull-ups hold the lines high).
+   Connect SDA to GPIO4 and SCL to GPIO5 on the ESP32-C3. The pull-up resistors are on the main 3.3V rail, so the lines stay high when the sensor power MOSFET is off. The sensor itself cannot answer until Q2 is on.
 
 4. **CSB pin**
 
@@ -433,11 +431,11 @@ Place a JST-PH 2-pin connector (J2) for the battery. Connect the positive pin to
 
 1. **Run Electrical Rules Check**
 
-   Fix any unconnected pins, missing power flags, or conflicting outputs. Add power flags on the battery input net and USB VBUS net if KiCad reports them as undriven.
+   Correct unconnected pins and conflicting outputs. Add power flags on the battery and USB VBUS nets if KiCad reports them as undriven.
 
 2. **Assign footprints**
 
-   Use the footprint assignment tool to map each symbol to its physical package. The ESP32-C3-MINI-1 footprint may need to be downloaded from Espressif's KiCad library or the SnapEDA/Ultra Librarian services.
+   Give each symbol its footprint (the copper pattern of its package). The ESP32-C3-MINI-1 footprint may have to come from Espressif's KiCad library.
 
 3. **Generate the netlist**
 
@@ -450,7 +448,20 @@ Place a JST-PH 2-pin connector (J2) for the battery. Connect the positive pin to
 <InArticleAd />
 
 
-The PCB layout for a battery-powered IoT node requires careful attention to three areas: antenna clearance for the ESP32-C3, thermal management for the TP4056 charger, and short power paths for low impedance. The target board size is 45 x 30 mm on a 2-layer PCB.
+Three things decide this layout: the antenna must be clear of copper, the charger must lose its heat, and the temperature sensor must stay away from that heat. The board is 45 x 30 mm, with 2 layers.
+
+```text
+  ┌──────────────────────────────┬──────────┐
+  │ ┌───────┐ ┌────────┐ ┌───────┤ antenna  │
+  │ │ USB-C │ │ TP4056 │ │ESP32  │ KEEP-OUT │
+  │ └───────┘ │ (warm) │ │C3     │ no copper│
+  │           └────────┘ │module │          │
+  │ ┌────────────┐ ┌───┐ └───────┤          │
+  │ │ protection │ │LDO│         └──────────┤
+  │ └────────────┘ └───┘       ┌────────┐   │
+  │ [battery J2] [solar J3]    │ BME280 │   │
+  └────────────────────────────┴────────┴───┘
+```
 
 ### Board Setup
 
@@ -458,15 +469,15 @@ The PCB layout for a battery-powered IoT node requires careful attention to thre
 
 1. **Set the board outline**
 
-   Draw a 45 x 30 mm rectangle on the Edge.Cuts layer. Add rounded corners with a 1 mm radius for a cleaner look and easier handling.
+   Draw a 45 x 30 mm rectangle on the Edge.Cuts layer. Round the corners with a 1 mm radius, so they do not catch.
 
 2. **Configure design rules**
 
-   Set minimum trace width to 0.15 mm, minimum clearance to 0.15 mm. For power traces (VBAT, 3.3V, GND), use 0.4 mm or wider. USB data traces can use 0.25 mm.
+   Set the minimum trace width and clearance to 0.15 mm, which the factory can make. Use 0.4 mm or wider for power traces (VBAT, 3.3V, GND) and 0.25 mm for USB data.
 
 3. **Set up the ground pour**
 
-   Plan for copper fills on both front and back layers connected to GND. Do not pour them yet; wait until all traces are routed.
+   Plan copper fills connected to GND on both layers. Pour them after all traces are routed.
 
 </Steps>
 
@@ -476,15 +487,15 @@ The PCB layout for a battery-powered IoT node requires careful attention to thre
 
 1. **Place the ESP32-C3-MINI-1 module**
 
-   Position it along one short edge of the board with the antenna extending past the board edge or flush with it. The antenna end must have no copper on any layer within 2 mm of the antenna area.
+   Put it at one short edge of the board, with the antenna flush with the edge or past it, and no copper on any layer within 2 mm of the antenna.
 
 2. **Place the USB-C connector**
 
-   Position it on the opposite short edge from the antenna. This keeps the USB cable away from the antenna, reducing interference.
+   Put it on the opposite short edge, so the USB cable is far from the antenna.
 
 3. **Place the TP4056 and protection circuit**
 
-   Group the TP4056, DW01A, 8205A, and their associated passives near the USB-C connector and battery connector. The TP4056 dissipates heat during charging (up to ~1.5W at 500 mA from 5V to a 3.7V battery), so place it with access to a copper pour for heat spreading.
+   Group the TP4056, DW01A, 8205A and their small parts near the USB-C connector and battery connector. The TP4056 becomes warm while it charges, so give it a copper pour to spread the heat.
 
 4. **Place the battery and solar connectors**
 
@@ -496,29 +507,29 @@ The PCB layout for a battery-powered IoT node requires careful attention to thre
 
 6. **Place the BME280**
 
-   Position it away from the TP4056 and LDO to avoid heat from those components affecting temperature readings. The ideal location is near the board edge, far from heat sources. Consider adding a routed slot or thermal relief cutout in the PCB between the sensor and the power section.
+   Put it near the board edge, away from the TP4056 and the LDO. A sensor beside a warm charger reports the temperature of the charger, not of the air. A slot cut in the board between them reduces the heat that reaches it.
 
 7. **Place buttons and LEDs**
 
-   Position the reset and boot buttons where they are accessible. Place the charging LEDs near the USB connector.
+   Put the reset and boot buttons where a finger can reach them, and the charging LEDs near the USB connector.
 
 </Steps>
 
 ### Antenna Keepout Zone
 
 :::caution[Antenna Clearance]
-The ESP32-C3-MINI-1 has a PCB trace antenna built into the module. You must maintain a ground-free, copper-free zone on all layers around the antenna area. Remove any copper pour within the keepout region. Placing components, traces, or copper in this zone will detune the antenna and degrade WiFi/BLE performance.
+The antenna is a copper pattern at one end of the module. Copper near it changes the frequency it is tuned to, and the WiFi and BLE range falls. Keep all layers free of copper, traces and parts around it.
 :::
 
-In KiCad, draw a keepout area on both copper layers covering the antenna region. Set the keepout to prohibit copper fills and tracks. The Espressif datasheet specifies the exact dimensions.
+In KiCad, draw a keepout area on both copper layers over the antenna region, set to prohibit copper fills and tracks. The Espressif datasheet gives the dimensions, and the [ESP32 devkit lesson](/education/pcb-design-kicad/esp32-wifi-bluetooth-devkit/) explains the antenna rules in full.
 
 ### Thermal Management for TP4056
 
-The TP4056 in SOP-8 package does not have an exposed thermal pad, so it relies on the PCB copper for heat dissipation. During charging at 500 mA from a 5V source into a 3.7V battery, the IC dissipates approximately:
+The TP4056 is a linear charger: the voltage it does not pass to the cell becomes heat inside it. Its SOP-8 package has a metal pad underneath (ESOP-8) that passes the heat to the board. The heat is the voltage across the charger multiplied by the current. At 500 mA from 5V into a cell at 3.7V:
 
-P = (5V - 3.7V) x 0.5A = 0.65W
+$$P = (5\,\text{V} - 3.7\,\text{V}) \times 0.5\,\text{A} = 0.65\,\text{W}$$
 
-This is manageable, but the copper area around the thermal pad and GND pins should be as large as practical. Connect the GND pad to a wide copper pour on both layers with multiple vias.
+Into a deeply discharged cell at 3.0V it is about 1 W. Make the copper around the pad and GND pins as large as you can, and join it to a pour on both layers with several vias.
 
 ### Routing Guidelines
 
@@ -526,28 +537,28 @@ This is manageable, but the copper area around the thermal pad and GND pins shou
 
 1. **Route power traces first**
 
-   Start with VBAT, 3.3V, and GND. Use 0.4 mm or wider traces. Keep the path from the LDO output to the ESP32-C3 VCC short and direct.
+   Start with VBAT, 3.3V, and GND, 0.4 mm wide or more. Keep the path from the LDO output to the ESP32-C3 supply pin short.
 
 2. **Route USB data lines**
 
-   Keep D+ and D- as a parallel pair with consistent spacing. Match their lengths to within 0.5 mm. Avoid routing them near switching signals or the antenna.
+   Keep D+ and D- side by side at a constant spacing, with lengths equal to within 0.5 mm, and away from the antenna.
 
 3. **Route I2C lines**
 
-   SDA and SCL to the BME280. These are low-speed signals, so routing is straightforward. Keep them reasonably short and away from the antenna area.
+   Route SDA and SCL to the BME280. They are slow signals. Keep them short and away from the antenna area.
 
 4. **Fill copper zones**
 
-   Pour ground fills on both front and back layers. Add vias to stitch the ground planes together, especially near the ESP32 module ground pad and the TP4056 ground area.
+   Pour ground on both layers. Join the two pours with vias, most of all near the module's ground pad and the TP4056.
 
 5. **Run DRC**
 
-   Check for clearance violations, unrouted nets, and minimum width errors. Fix any issues before generating Gerbers.
+   The design rules check finds clearance errors, unrouted nets and traces that are too narrow. Correct them before you make the Gerber files.
 
 </Steps>
 
 :::tip[Instrument it]
-This is the board that turns a breadboard sensor into a node you can leave in a field for a year. Three layout choices decide whether it survives: bring the sensor out to a sealed connector or a vent so it reads real conditions without letting water in, keep the antenna clear of the ground pour and the battery, and size the cell and sleep current for the reporting rate you actually need. Get those right and the node can [report from anywhere](/education/iot-systems/) over WiFi, cellular, or LoRaWAN to a [dashboard](https://siliconwit.io), untended.
+This board turns a breadboard sensor into a node you can leave in a field. Give the sensor a vent, so it reads the real air and water stays out. Keep the antenna clear of the ground pour and of the battery. Choose the cell for the reporting rate you really need. The node can then [report from anywhere](/education/iot-systems/) over WiFi, cellular, or LoRaWAN to a [dashboard](https://siliconwit.io).
 :::
 
 ## Manufacturing
@@ -555,9 +566,9 @@ This is the board that turns a breadboard sensor into a node you can leave in a 
 <InArticleAd />
 
 
-Export Gerbers and drill files from KiCad using File, then Plot. Select all copper layers (F.Cu, B.Cu), silkscreen layers, mask layers, and Edge.Cuts. Generate the drill file in Excellon format. Compress all files into a single ZIP.
+A factory works from Gerber files (one drawing for each layer) and a drill file. Export them from KiCad with File, then Plot. Select all copper layers (F.Cu, B.Cu), silkscreen layers, mask layers, and Edge.Cuts. Generate the drill file in Excellon format. Compress all files into a single ZIP.
 
-Upload to JLCPCB or your preferred fabricator. For this 2-layer board, standard settings work well:
+Upload to JLCPCB or another fabricator. For this 2-layer board the standard settings are enough:
 
 | Parameter | Setting |
 |-----------|---------|
@@ -568,18 +579,20 @@ Upload to JLCPCB or your preferred fabricator. For this 2-layer board, standard 
 | Solder mask | Green (or your preference) |
 | Min trace/space | 6/6 mil (0.15/0.15 mm) |
 
-Order a stencil for the top layer if you plan to reflow solder the QFN and LGA components. The BME280 in LGA-8 and the 8205A in TSSOP-8 are much easier to solder with paste and hot air or a reflow oven than by hand.
+Order a stencil for the top layer. The BME280 (LGA-8) and the ESP32-C3 module have their pads underneath, so they are soldered with paste and hot air or a reflow oven.
+
+Before the first charge, check the cell's polarity with a meter, and stay with the board while it charges.
 
 ## Firmware: Deep Sleep Sensor Reading
 
 <InArticleAd />
 
 
-The firmware demonstrates the core IoT sensor pattern: wake up, read sensors, transmit data, go back to sleep. This example uses the Arduino framework for the ESP32-C3, reads the BME280 over I2C, prints the data to USB serial, and enters deep sleep for 10 minutes.
+The firmware follows the pattern of every battery sensor: wake, read, send, sleep. This example uses the Arduino framework for the ESP32-C3. It reads the BME280 over I2C, prints the data to USB serial, and enters deep sleep for 10 minutes.
 
 ### Arduino Setup
 
-Install the ESP32 board package in Arduino IDE (or PlatformIO). Select "ESP32C3 Dev Module" as the board. Install the Adafruit BME280 library and the Adafruit Unified Sensor library from the Library Manager.
+Install the ESP32 board package in Arduino IDE (or PlatformIO). Select "ESP32C3 Dev Module" as the board, and set Tools > USB CDC On Boot to "Enabled" so that `Serial` uses the native USB port. Install the Adafruit BME280 library and the Adafruit Unified Sensor library from the Library Manager.
 
 ### Complete Sketch
 
@@ -600,6 +613,8 @@ Install the ESP32 board package in Arduino IDE (or PlatformIO). Select "ESP32C3 
 #define BME280_ADDR 0x76
 
 Adafruit_BME280 bme;
+
+void goToSleep();  // defined below
 
 void setup() {
   // Initialize USB serial
@@ -681,21 +696,19 @@ void loop() {
 
 ### How It Works
 
-The ESP32-C3 deep sleep mechanism resets the processor on wake. Execution always starts from `setup()`, not from where it left off. The RTC memory retains a small amount of data across sleep cycles if needed (for example, a boot counter or accumulated readings).
+Deep sleep on the ESP32-C3 ends with a reset. The program starts again from `setup()` each time, not from where it stopped, which is why `loop()` is empty. A small memory (the RTC memory) keeps its contents through sleep, for a boot counter or stored readings.
 
-The firmware flow:
+The order of events:
 
-1. Wake from deep sleep (or initial power-on)
-2. Drive GPIO3 LOW to turn on the sensor power MOSFET
-3. Wait 50 ms for the sensor power rail to stabilize
-4. Initialize I2C and the BME280
-5. Take a forced measurement (single reading, lowest power)
-6. Read temperature, humidity, and pressure
-7. Print the data over USB serial
-8. Drive GPIO3 HIGH to turn off the sensor
-9. Enter deep sleep for 10 minutes
+1. Wake from deep sleep (or first power-on)
+2. Drive GPIO3 LOW to switch on the sensor power MOSFET, and wait 50 ms
+3. Start I2C and the BME280
+4. Take one forced measurement (a single reading, the mode that uses least power)
+5. Print temperature, humidity and pressure over USB serial
+6. Drive GPIO3 HIGH to switch the sensor off
+7. Enter deep sleep for 10 minutes
 
-To add WiFi transmission, insert a WiFi connect and HTTP POST (or MQTT publish) between step 7 and step 8. WiFi adds approximately 3 to 5 seconds of wake time and 80 to 150 mA of current draw.
+To send the data over WiFi, connect and send (an HTTP POST or an MQTT publish) between steps 5 and 6. WiFi adds about 3 to 5 seconds of wake time at 80 to 150 mA.
 
 ### PlatformIO Alternative
 
@@ -707,44 +720,31 @@ platform = espressif32
 board = esp32-c3-devkitm-1
 framework = arduino
 monitor_speed = 115200
+build_flags =
+    -DARDUINO_USB_MODE=1
+    -DARDUINO_USB_CDC_ON_BOOT=1
 lib_deps =
     adafruit/Adafruit BME280 Library@^2.2.2
     adafruit/Adafruit Unified Sensor@^1.1.9
 ```
 
-The source code is identical. Place it in `src/main.cpp`.
+The source code is the same with one addition: put `#include <Arduino.h>` on the first line. Place it in `src/main.cpp`.
 
 ## What You Have Learned
 
 <InArticleAd />
 
 
-<Card title="Lesson 6 Complete" icon="approve-check">
+<Card title="Battery Sensor Node Complete" icon="approve-check">
 
-**KiCad skills:**
-- Designed a multi-source power input with diode-OR topology
-- Placed and connected a lithium battery charging circuit (TP4056) with protection (DW01A + 8205A)
-- Managed antenna keepout zones for the ESP32-C3 WiFi/BLE module
-- Applied thermal management techniques for power dissipation in the TP4056
-- Routed a compact 2-layer board with ground pours on both sides
-
-**Electronics skills:**
-- Lithium battery charging, protection, and safety circuit design
-- Solar panel input integration with USB charging
-- Low-quiescent-current LDO selection for battery applications
-- Power budget analysis for deep sleep IoT devices
-- Switchable sensor power using P-channel MOSFETs
-
-**Firmware skills:**
-- ESP32-C3 deep sleep with timer wakeup
-- BME280 forced mode measurement for lowest power consumption
-- GPIO-controlled sensor power switching
-- Arduino framework for ESP32-C3 with native USB serial
+- KiCad: two power sources joined with a diode-OR, a lithium charger (TP4056) with a protection circuit (DW01A + 8205A), a clear antenna, and a sensor kept away from the charger's heat
+- Electronics: a charge current that suits the cell, a regulator chosen for its quiescent current, a power budget, and a switched sensor supply
+- Firmware: deep sleep with a timer wakeup, and one forced measurement from the BME280
 
 </Card>
 
 :::tip[Next Lesson]
-In [Lesson 7: RP2040 USB-C Development Board](/education/pcb-design-kicad/rp2040-usb-c-development-board), you will design a development board around the Raspberry Pi RP2040 microcontroller. This introduces BGA-adjacent QFN routing, external flash memory, USB 2.0 full-speed layout, and multi-power-domain design with the RP2040's core and I/O voltage rails.
+In the [RP2040 USB-C development board](/education/pcb-design-kicad/rp2040-usb-c-development-board/), you design a board around the Raspberry Pi RP2040 microcontroller. It adds a fine-pitch QFN package, an external flash memory, a USB 2.0 full-speed layout, and separate supply voltages for the chip's core and its pins.
 :::
 
 <PcbDesignKicadComments />

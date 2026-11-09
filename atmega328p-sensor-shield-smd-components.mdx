@@ -25,32 +25,30 @@ import { Card, CardGrid, Badge, Steps, LinkButton, FileTree } from '@astrojs/sta
 
 import PcbDesignKicadComments from '../../../../components/pcb-design-kicad/PcbDesignKicadComments.astro';
 
-Through-hole components are easy to solder, but they are large, limit how dense your layout can be, and many modern sensors simply do not come in through-hole packages. If you want to use the latest MEMS sensors, IMUs, or compact MCU variants, you need to work with SMD. Surface mount parts can be ten times smaller, which means shorter traces, less parasitic capacitance, and boards that fit in tight enclosures. In this lesson you will design a sensor shield around the ATmega328P in a TQFP-32 package, add an I2C temperature/humidity sensor (SHT30) and an SPI ambient light sensor (VEML7700), and learn CNC milling as an alternative to chemical etching. #KiCad #SMD #SensorShield
+The sensor you want for a project is often sold in one form only: a square of plastic 2.5 mm wide with no legs at all. Most modern sensors are made this way, as surface-mount devices (SMD) that are soldered flat on the copper and need no holes. If you can only design with through-hole parts, you cannot use them. In this lesson you design a board that reads temperature, humidity and light with two such sensors and an ATmega328P in a surface-mount package. You learn how surface-mount footprints differ, how to solder them by hand, and how to cut the board on a CNC milling machine. #KiCad #SMD #SensorShield
 
 ```text
-  SMD Component Size Comparison
-  ──────────────────────────────────────────
-  Through-hole resistor (axial):
+  Through-hole resistor:
   ├────────── 6.5 mm ──────────┤
 
   0805 SMD (2.0 x 1.25 mm):
-  ├──┤  ◄── fits on a pencil tip
+  ├──┤
 
   0402 SMD (1.0 x 0.5 mm):
-  ├┤    ◄── barely visible
+  ├┤
 
-  TQFP-32 (0.8mm pitch):
+  TQFP-32 chip:
   ┌──────────┐
-  │ ││││││││ │  32 pins total,
-  │          │  8 per side,
-  │ ││││││││ │  0.8 mm between
-  └──────────┘  pin centers
+  │ ││││││││ │  32 pins, 8 on each side,
+  │          │  0.8 mm from the center of
+  │ ││││││││ │  one pin to the next
+  └──────────┘
 ```
 
 ## What We Are Building
 
 <Card title="ATmega328P Sensor Shield" icon="star">
-A compact double-sided sensor board with the ATmega328P in its smallest through-hole-free package (TQFP-32, 0.8mm pin pitch). The board reads temperature, humidity, and ambient light through I2C and SPI buses, sending data over UART. All passives are 0805 SMD, the smallest size comfortable for hand soldering.
+A small two-layer board with the ATmega328P in a surface-mount package (TQFP-32). It reads temperature, humidity and light from two sensors that share one pair of wires (an I2C bus) and sends the readings to a computer over a serial port (UART). All resistors and capacitors are size 0805, the smallest that is comfortable to solder by hand.
 </Card>
 
 **Board specifications:**
@@ -61,7 +59,7 @@ A compact double-sided sensor board with the ATmega328P in its smallest through-
 | Clock | 16 MHz crystal (3.2x2.5mm SMD) |
 | Power | USB Micro-B 5V input, 3.3V LDO (AMS1117-3.3) for sensors |
 | Sensors | SHT30-DIS (I2C, temp/humidity), VEML7700 (I2C, ambient light) |
-| Communication | UART header (TX, RX, GND), ISP header |
+| Communication | UART header (VCC, TX, RX, GND), ISP header |
 | Passives | 0805 SMD resistors and capacitors |
 | Size | 40 x 35 mm, double-sided |
 
@@ -72,7 +70,7 @@ A compact double-sided sensor board with the ATmega328P in its smallest through-
 | U1 | ATmega328P-AU | TQFP-32 | 1 | 0.8mm pitch |
 | U2 | AMS1117-3.3 | SOT-223 | 1 | 3.3V LDO for sensors |
 | U3 | SHT30-DIS-B | DFN-8 (2.5x2.5mm) | 1 | Temperature/humidity |
-| U4 | VEML7700 | OPLGA (6.8x3.5mm) | 1 | Ambient light sensor |
+| U4 | VEML7700 | SMD, 6.8x2.35mm | 1 | Ambient light sensor |
 | Y1 | 16 MHz | 3.2x2.5mm SMD | 1 | Crystal |
 | C1, C2 | 22 pF | 0805 | 2 | Crystal load caps |
 | C3-C6 | 100 nF | 0805 | 4 | Decoupling |
@@ -91,11 +89,11 @@ A compact double-sided sensor board with the ATmega328P in its smallest through-
 <InArticleAd />
 
 
-Before drawing the schematic, let's understand what changes with SMD components.
+A surface-mount part has no holes to guide it. Its footprint must match it to a tenth of a millimetre, so first learn how the sizes are named.
 
 ### Package Sizes
 
-SMD passive components come in standardized sizes named by their imperial dimensions in hundredths of an inch:
+Surface-mount resistors and capacitors come in standard sizes. The name is the length and width in hundredths of an inch, not in millimetres: 0805 is 0.08 inch by 0.05 inch, which is 2.0 mm by 1.25 mm.
 
 | Package | Size (mm) | Hand Solderable? | Use Case |
 |---------|-----------|------------------|----------|
@@ -104,25 +102,23 @@ SMD passive components come in standardized sizes named by their imperial dimens
 | 0603 | 1.6 x 0.8 | Moderate | Space-constrained designs |
 | 0402 | 1.0 x 0.5 | Difficult | Professional assembly only |
 
-We use 0805 throughout this lesson. It is small enough to save board space but large enough that a steady hand with a fine-tip soldering iron can handle it.
-
 ### TQFP vs DIP
 
-The ATmega328P-AU (TQFP-32) has the same silicon as the DIP-28 version from Lesson 1, but in a 7x7mm package instead of 37x7mm. The pin pitch drops from 2.54mm to 0.8mm. This means:
+The ATmega328P-AU is the same chip as the 28-pin through-hole ATmega328P, in a flat square package 7 mm wide called TQFP-32. The distance from one pin to the next (the pitch) falls from 2.54mm to 0.8mm. Three things follow:
 
-- Thinner traces between pins (you need at least 0.2mm trace width to route between TQFP pads)
-- Solder paste and a hot air station work better than an iron for TQFP soldering
-- The pinout maps differently: TQFP-32 has 32 pins (4 extra: two additional GND and two ADC pins)
+- The gap between two pads is about 0.25mm. No track can pass between two pads, and a track that leaves a pad must be narrower than the pad.
+- A soldering iron alone bridges the pins easily. Solder paste and hot air work better.
+- The package has four more pins: one more VCC, one more GND, and two inputs that are analog only (ADC6 and ADC7). So the pin numbers differ from the through-hole chip.
 
 ### Pad and Courtyard
 
-In KiCad, every SMD footprint has:
+Every surface-mount footprint in KiCad has three outlines:
 
-- **Pads**: copper areas where solder connects the component to the board
-- **Courtyard**: a clearance boundary showing how close other components can be placed
-- **Fab layer**: the component outline showing its physical dimensions
+- **Pads**: the copper areas where solder joins the part to the board
+- **Courtyard**: the space the part needs around it, for the soldering tool and for the tolerance of placement
+- **Fab layer**: the true outline of the part's body
 
-When placing components, keep courtyards from overlapping. KiCad's DRC checks this automatically.
+Keep the courtyards of two parts from overlapping. The design rules check (DRC) reports it if they do.
 
 ## Schematic Capture
 
@@ -133,50 +129,60 @@ Create a new KiCad project named `atmega328p-sensor-shield`.
 
 <LinkButton href="https://github.com/SiliconWit/pcb-design-kicad/blob/main/schematics/atmega328p-sensor-shield-smd-components.pdf" target="_blank" variant="secondary" icon="document">Download Schematic PDF</LinkButton>
 
+:::caution[Do not build the reset circuit from the PDF]
+The PDF is an earlier drawing. It connects RESET straight to +5V and puts R1 in series with the button. The button then does nothing, and a programmer on the ISP header that pulls RESET low is shorted to the 5 V supply, which can damage the programmer. Connect R1 from RESET to +5V and the switch from RESET to GND, as the text says.
+
+The PDF also shows a USB-C plug with no CC resistors in place of the Micro-B socket, a second pair of I2C pull-ups, a capacitor on AREF, and other part numbers (the regulator capacitors are C3 and C4, the crystal is X1, the LED resistor is R6, the ISP header is J1 and the UART header is J2). Where the two differ, follow the text.
+:::
+
 ### Power Supply
 
-This board has two voltage rails: 5V from USB for the MCU, and 3.3V from the LDO for the sensors.
+USB gives 5 V, which suits the MCU. The light sensor works only up to 3.6 V, so the sensors need their own 3.3 V supply. A small linear regulator (an LDO, low-dropout regulator) makes 3.3 V from the 5 V.
 
 <Steps>
-1. **Place the USB Micro-B connector.** Add `USB_B_Micro` from the Connector library. This provides 5V and GND from any USB power source.
+1. **Place the USB Micro-B connector.** Add `USB_B_Micro` from the Connector library. Only its 5 V pin (VBUS) and its ground pin are used.
 
-2. **Place the 3.3V LDO.** Add `AMS1117-3.3` (SOT-223). Connect its input to the USB 5V through a 10 µF capacitor (C7). Connect its output to a `+3V3` power symbol through another 10 µF capacitor (C8).
+2. **Place the 3.3V regulator.** Add `AMS1117-3.3` (SOT-223 package). Its input goes to the USB 5 V and its output to a `+3V3` power symbol.
 
-3. **Add power symbols.** Place `+5V`, `+3V3`, and `GND` power symbols. The MCU runs on +5V; the sensors run on +3V3.
+3. **Add its two capacitors.** Place C7 (10 µF) from the regulator input to `GND` and C8 (10 µF) from the regulator output to `GND`. Without a capacitor at its output this regulator can oscillate.
 
-4. **Wire the power section.** USB VBUS to +5V, USB GND to GND. LDO input from +5V, LDO output to +3V3.
+4. **Add power symbols and wires.** USB VBUS to `+5V`, USB GND to `GND`, regulator input to `+5V`, regulator output to `+3V3`.
 </Steps>
 
 ### MCU and Crystal
 
+The MCU needs the same four circuits as on the [through-hole breakout board](/education/pcb-design-kicad/atmega328p-breakout-board-through-hole/): decoupling capacitors, a crystal as its clock, a reset pull-up, and a programming header.
+
 <Steps>
-1. **Place the ATmega328P-AU.** Add `ATmega328P-AU` (the TQFP-32 variant). Place it in the center of the schematic.
+1. **Place the ATmega328P-AU.** Add `ATmega328P-A`, the TQFP-32 symbol, in the center of the sheet.
 
-2. **Connect power.** Wire VCC (pin 4), AVCC (pin 18) to `+5V`. Wire GND (pins 3, 5, 21) to `GND`. Place 100 nF decoupling capacitors (C3, C4) close to VCC and AVCC.
+2. **Connect power.** Wire VCC (pins 4 and 6) and AVCC (pin 18) to `+5V`. Wire GND (pins 3, 5, 21) to `GND`. Place 100 nF decoupling capacitors (C3, C4) at VCC and AVCC.
 
-3. **Crystal circuit.** Place a `Crystal_SMD_4Pin` (16 MHz) between XTAL1 (pin 7) and XTAL2 (pin 8). Add 22 pF load capacitors (C1, C2) from each crystal pin to GND.
+3. **Crystal circuit.** Place a `Crystal_GND24` (16 MHz, the 4-pin SMD crystal symbol, with its two case pins wired to GND) between XTAL1 (pin 7) and XTAL2 (pin 8). Add 22 pF load capacitors (C1, C2) from each crystal pin to GND.
 
 4. **Reset circuit.** Connect a 10 kΩ pull-up (R1) from RESET (pin 29) to `+5V`. Add the SMD tactile switch from RESET to GND.
 
-5. **ISP header.** Place `Conn_AVR_ISP` and wire MISO, MOSI, SCK, RESET, VCC, GND as in Lesson 1.
+5. **ISP header.** Place `AVR-ISP-6` and wire MISO (PB4), MOSI (PB3), SCK (PB5), RESET, VCC and GND.
 </Steps>
 
 ### I2C Bus and Sensors
 
-Both the SHT30 and VEML7700 communicate over I2C, so they share the same bus.
+I2C is a bus of two wires that many chips share: SDA carries the data and SCL carries the clock. A chip on the bus can only pull a wire down to 0 V. Nothing drives a wire up, so each wire needs one resistor to the supply (a pull-up) that returns it to the high level. Each sensor has its own address, so the MCU can speak to one at a time.
 
 <Steps>
-1. **I2C pull-ups.** Add two 4.7 kΩ resistors (R2, R3). Connect R2 from SDA (PC4/pin 27) to `+3V3`. Connect R3 from SCL (PC5/pin 28) to `+3V3`. We pull up to 3.3V because both sensors are 3.3V devices. The ATmega328P I2C pins are 3.3V tolerant when running at 5V.
+1. **I2C pull-ups.** Add two 4.7 kΩ resistors: R2 from SDA (PC4/pin 27) to `+3V3` and R3 from SCL (PC5/pin 28) to `+3V3`. A larger value lets the wire rise too slowly, and a much smaller one stops the chips pulling it low. The resistors go to 3.3V so the sensors never see 5 V. The ATmega328P at 5 V reads 3.3 V as high in practice, but its data sheet guarantees this only from 3.5 V, so a product would add a level shifter.
 
-2. **Place the SHT30.** Add `SHT3x-DIS` (or create a custom symbol with VDD, GND, SDA, SCL, ADDR, ALERT pins). Connect VDD to `+3V3`, GND to `GND`, SDA to the I2C SDA bus, SCL to the I2C SCL bus. Tie ADDR to GND for address 0x44. Add a 100 nF decoupling cap (C5).
+2. **Place the SHT30** (temperature and humidity). Add `SHT30-DIS`, or draw a symbol with VDD, GND, SDA, SCL, ADDR and ALERT pins. Connect VDD to `+3V3`, GND to `GND`, SDA and SCL to the bus. Connect ADDR to GND, which sets the address to 0x44. Add a 100 nF decoupling capacitor (C5).
 
-3. **Place the VEML7700.** Add `VEML7700` (or a generic I2C sensor symbol). Connect VDD to `+3V3`, GND to `GND`, SDA and SCL to the I2C bus. The VEML7700 has a fixed I2C address (0x10), so no address pin is needed. Add a 100 nF decoupling cap (C6).
+3. **Place the VEML7700** (light). KiCad 9 has no symbol for it, so draw one in the Symbol Editor with VDD, GND, SDA and SCL pins. Connect VDD to `+3V3`, GND to `GND`, SDA and SCL to the bus. Its address is fixed at 0x10. Add a 100 nF decoupling capacitor (C6).
 </Steps>
 
 ### UART Output
 
+The board has no display, so it sends its readings as text over two serial wires (UART) to a USB-serial adapter on a computer.
+
 <Steps>
-1. **Place a 1x4 pin header** (J3) for UART output. Pins: VCC, TX, RX, GND. This connects to a USB-UART adapter (like FTDI or CP2102) for serial data output.
+1. **Place a 1x4 pin header** (J3) with the pins VCC, TX, RX, GND.
 
 2. **Wire UART.** Connect ATmega328P TXD (PD1/pin 31) to the TX pin and RXD (PD0/pin 30) to the RX pin on the header.
 </Steps>
@@ -184,28 +190,28 @@ Both the SHT30 and VEML7700 communicate over I2C, so they share the same bus.
 ### Power LED
 
 <Steps>
-1. **Place an 0805 LED** (D1) and 330 Ω resistor (R4). Connect `+3V3` to R4, R4 to D1 anode, D1 cathode to GND. This indicates the 3.3V rail is active.
+1. **Place an 0805 LED** (D1) and a 330 Ω resistor (R4). Connect `+3V3` to R4, R4 to the D1 anode, and the D1 cathode to GND. The LED shows that the 3.3V supply is present.
 
-2. **Run ERC.** Fix any errors before proceeding.
+2. **Run the electrical rules check (ERC)** and correct every error.
 </Steps>
 
 ### Assign Footprints
 
-Open **Tools > Assign Footprints** and set:
+A footprint is the pattern of pads one part needs on the board. For surface-mount parts, compare each footprint with the drawing in the part's data sheet: a pad that is 0.2 mm out of place cannot be soldered. Open **Tools > Assign Footprints** and set:
 
 | Symbol | Footprint |
 |--------|-----------|
-| ATmega328P-AU | `Package_QFP:TQFP-32_7x7mm_P0.8mm` |
+| ATmega328P-A | `Package_QFP:TQFP-32_7x7mm_P0.8mm` |
 | AMS1117-3.3 | `Package_TO_SOT_SMD:SOT-223-3_TabPin2` |
-| SHT3x-DIS | `Sensor_Humidity:Sensirion_DFN-8-1EP_2.5x2.5mm_P0.5mm_EP1.1x1.7mm` |
-| VEML7700 | `OptoDevice:Vishay_OPLGA-4_1.25x1mm_P0.8mm` |
-| Crystal 16MHz | `Crystal:Crystal_SMD_3215-4Pin_3.2x1.5mm` |
+| SHT30-DIS | `Sensor_Humidity:Sensirion_DFN-8-1EP_2.5x2.5mm_P0.5mm_EP1.1x1.7mm` |
+| VEML7700 | Custom footprint, drawn in the Footprint Editor from the land pattern in the Vishay datasheet (KiCad 9 has no stock VEML7700 footprint) |
+| Crystal 16MHz | `Crystal:Crystal_SMD_3225-4Pin_3.2x2.5mm` |
 | USB_B_Micro | `Connector_USB:USB_Micro-B_Molex_47346-0001` |
 | C (0805) | `Capacitor_SMD:C_0805_2012Metric` |
 | R (0805) | `Resistor_SMD:R_0805_2012Metric` |
 | LED (0805) | `LED_SMD:LED_0805_2012Metric` |
 | SW_Push | `Button_Switch_SMD:SW_SPST_PTS810` |
-| Conn_AVR_ISP | `Connector_PinHeader_2.54mm:PinHeader_2x03_P2.54mm_Vertical` |
+| AVR-ISP-6 | `Connector_PinHeader_2.54mm:PinHeader_2x03_P2.54mm_Vertical` |
 | Conn_01x04 | `Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical` |
 
 ## PCB Layout
@@ -218,161 +224,144 @@ Open **Tools > Assign Footprints** and set:
 <Steps>
 1. **Board outline.** On the Edge.Cuts layer, draw a 40 x 35 mm rectangle.
 
-2. **Layer setup.** This is a double-sided board: F.Cu (front copper) and B.Cu (back copper). Go to **Board Setup > Board Stackup > Physical Stackup** and verify the board has two copper layers with a 1.6mm substrate.
+2. **Layer setup.** The board has copper on two faces: F.Cu (front) and B.Cu (back). Open **Board Setup > Board Stackup > Physical Stackup** and check that it shows two copper layers on a 1.6mm board.
 
-3. **Design rules.** Set the Default net class:
-   - Track width: 0.25 mm (for signal traces between TQFP pads)
-   - Clearance: 0.2 mm
+3. **Design rules.** These are the limits KiCad holds you to while you route. Set the Default net class:
+   - Track width: 0.25 mm. A track must be narrower than the TQFP pad it leaves, and a milling machine can still cut this width cleanly.
+   - Clearance: 0.2 mm. The gap between two TQFP pads is about 0.25 mm, so a larger clearance would make every pin of the chip an error.
    - Via size: 0.6 mm, drill 0.3 mm
 
-   Add a Power net class:
-   - Track width: 0.5 mm
+   Add a Power net class for `+5V`, `+3V3` and `GND`:
+   - Track width: 0.5 mm. Supply tracks carry the current of the whole board, and a wider track loses less voltage.
    - Clearance: 0.2 mm
 </Steps>
 
 ### Import and Place Components
 
 <Steps>
-1. **Update PCB from schematic** (F8). All components appear in a cluster.
+1. **Update PCB from schematic** (F8). All footprints appear in one group.
 
-2. **Place the USB connector** on the top edge of the board, centered, with the plug side extending slightly beyond the board edge.
+2. **Place the USB connector** at the middle of the top edge, with its opening a little beyond the board edge so the plug can enter.
 
-3. **Place U2 (LDO)** near the USB connector. Put C7 and C8 immediately adjacent to its input and output pins.
+3. **Place U2 (the regulator)** near the USB connector, with C7 and C8 against its input and output pins.
 
-4. **Place U1 (ATmega328P-AU)** in the center. The TQFP package is compact, so component placement around it matters more.
+4. **Place U1 (ATmega328P-AU)** in the center.
 
-5. **Place the crystal** (Y1) as close to pins 7 and 8 as possible. Place C1 and C2 right next to the crystal.
+5. **Place the crystal** (Y1) as close to pins 7 and 8 as possible, with C1 and C2 beside it. A long track here picks up noise and can stop the clock.
 
-6. **Place decoupling caps** (C3, C4) within 3mm of the VCC/AVCC pins. Shorter is better.
+6. **Place the decoupling capacitors** (C3, C4) within 3mm of the VCC and AVCC pins. Each millimetre of track weakens them.
 
-7. **Place sensors.** Put U3 (SHT30) away from heat sources (the LDO, MCU). Temperature sensors need accurate ambient readings. Put U4 (VEML7700) near a board edge where it can see ambient light.
+7. **Place the sensors.** A temperature sensor reports its own temperature, and copper carries heat to it. Put U3 (SHT30) as far as you can from the regulator and the MCU, which are the warm parts. Put U4 (VEML7700) near a board edge where light reaches it.
 
-8. **Place the ISP header** (J2) and UART header (J3) on the bottom edge for easy access.
+8. **Place the ISP header** (J2) and the UART header (J3) on the bottom edge, where a cable can reach them.
 
 9. **Place the reset button** near a board edge.
 </Steps>
 
+### Double-Sided Layout Tips
+
+<Card title="SMD Placement Rules" icon="information">
+- Keep all surface-mount parts on the front face, so they can be soldered with hot air in one pass
+- Through-hole parts (the ISP and UART headers) can go on either face
+- If a part must go on the back, press `F` to move it there
+- The sensors must face the open air, not a surface the board is mounted on
+</Card>
+
 ### Routing Strategy
 
 <Steps>
-1. **Route power traces first** using the Power net class (0.5mm). Run +5V and +3V3 as short, direct traces from their sources to each component.
+1. **Route the supply tracks first** with the Power net class (0.5mm). Run +5V and +3V3 by the shortest path from their source to each part.
 
-2. **Route the crystal traces.** Keep XTAL1 and XTAL2 short, symmetric, and away from other signals. Guard them with a ground pour later.
+2. **Route the crystal.** Keep XTAL1 and XTAL2 short and of equal length, with no other signal beside them.
 
-3. **Route I2C bus.** SDA and SCL run from the MCU to both sensors and the pull-up resistors. Keep these traces under 50mm total length. Route them as a pair with consistent spacing.
+3. **Route the I2C bus.** SDA and SCL run from the MCU to both sensors and to the pull-up resistors. Keep each under 50mm. A longer track adds capacitance, and capacitance slows the rise of the signal.
 
-4. **Route UART.** TX and RX from the MCU to the UART header. These are low-speed signals, so routing is straightforward.
+4. **Route UART and ISP.** TX and RX to the UART header, then MISO, MOSI, SCK and RESET to the ISP header. These signals are slow and tolerate any reasonable path.
 
-5. **Route ISP signals.** MISO, MOSI, SCK, RESET from the MCU to the ISP header.
+5. **Use vias where a track must cross another.** Press `V` while routing to place a via and continue on the other layer. Each via on a milled board must later be joined by hand, so use few (fewer than 20 on this board).
 
-6. **Use vias when needed.** With a double-sided board, you can route signals on the back copper layer. Press `V` during routing to place a via and switch layers. Keep via count reasonable (under 20 for this board).
+6. **Add ground pours on both layers.** Draw a GND zone on F.Cu and on B.Cu and fill them with `B` (Fill All Zones). The pour gives every part a short path to ground, and it leaves less copper for the mill to remove.
 
-7. **Add ground pours on both layers.** Create a GND zone on F.Cu and B.Cu. Fill them with `B` (Build All Zones). This provides a solid ground plane and reduces the amount of copper that needs to be removed during milling.
-
-8. **Run DRC.** Zero errors, zero unconnected items.
+7. **Run DRC.** Correct it until there are no errors and no unconnected items.
 </Steps>
 
 ### Optional: Speed Up With Freerouting
 
-KiCad does not ship a built-in autorouter (the original was Java-based and dropped in KiCad 5 because no one stepped up to maintain it). The community-standard replacement is **Freerouting**, a free Java app that talks to KiCad through the Specctra DSN/SES file format.
-
-For a board this dense, Freerouting can save real time, but only if you do not let it touch the nets that matter:
+KiCad has no automatic router. **Freerouting** is a free program that routes a board for you. On a board this small, routing by hand teaches more. If you try it:
 
 <Steps>
-1. **Hand-route and lock the critical nets first.** Power (+5V, +3V3, GND), the crystal pair (XTAL1/XTAL2), and the I2C pair (SDA/SCL) all benefit from deliberate placement. Route them yourself, then select each track and check **Locked** in the Properties panel. Locked tracks survive the autorouter pass.
+1. **Route the supply nets, the crystal and the I2C bus by hand and lock them.** Select each track and check **Locked** in the Properties panel.
 
-2. **Install Freerouting.** Download the latest release from [github.com/freerouting/freerouting](https://github.com/freerouting/freerouting) (you need a Java runtime installed). On many systems it is also available through KiCad's **Plugin and Content Manager** (PCM).
+2. **Install Freerouting** from [github.com/freerouting/freerouting](https://github.com/freerouting/freerouting) (it needs a Java runtime), or through KiCad's **Plugin and Content Manager**.
 
-3. **Launch the autorouter from the PCB Editor toolbar** (the icon usually looks like a maze or a green PCB with arrows). The dialog exports a `.dsn` of the current board, hands it to Freerouting, waits for results, and imports the `.ses` back automatically.
+3. **Start it from the PCB Editor toolbar.** It routes the open board and returns the result to KiCad.
 
-4. **Review the result.** Look for: too many vias on a single net, sharp corners on signals you care about, traces that cross under the crystal. Re-route by hand anything you don't like; the autoroute is a starting point, not a finished design.
-
-5. **Run DRC again.** Locked tracks should be untouched, the rest should be connected, zero errors.
+4. **Examine the result,** route again by hand any net with many vias, and run DRC again.
 </Steps>
-
-For a small, mostly-digital board like this one, hand routing teaches you more and the time difference is small. Freerouting earns its place when you reach 50+ nets, are working under deadline, or routing pure digital fan-out where aesthetics matter less than completion. Either choice produces the same Gerbers downstream.
-
-### Double-Sided Layout Tips
-
-<Card title="SMD Placement Rules" icon="information">
-- Keep all SMD components on the front side unless space forces some to the back
-- Through-hole components (ISP header, UART header) can go on either side
-- If a component must go on the back, flip it with `F` key in KiCad
-- The sensor ICs (SHT30, VEML7700) should face outward, not trapped between the board and a surface
-</Card>
 
 ## Manufacturing: CNC Milling
 
 <InArticleAd />
 
 
-CNC milling removes copper mechanically instead of chemically. A small end mill cuts isolation channels around traces, leaving the copper traces as raised islands. This works well for double-sided boards because you can flip the board and mill the other side.
+A CNC milling machine cuts a narrow channel around every pad and track, so each is left as an island of copper. To make a two-layer board, you mill one face, turn the board over and mill the other.
 
 ### Why CNC Milling?
 
-- No chemicals (no ferric chloride, no disposal issues)
-- Higher precision than toner transfer (0.1mm channels are achievable)
-- Repeatable (once set up, you can make identical boards)
-- Drills holes in the same setup
-- Works well for fine-pitch SMD pads like TQFP
+It needs no chemicals, it drills the holes in the same setup, and it cuts channels of 0.1mm, fine enough for TQFP pads.
 
 ### CNC Milling Workflow
 
 <Steps>
-1. **Export Gerber files.** In KiCad PCB Editor, go to **File > Plot**. Select `F.Cu`, `B.Cu`, and `Edge.Cuts` layers. Set format to **Gerber**. Click **Plot**. Then click **Generate Drill Files** in Excellon format.
+1. **Export Gerber files.** A Gerber file is a flat picture of one layer, in a format that board factories and milling programs read. In the KiCad PCB Editor, go to **File > Plot**. Select the `F.Cu`, `B.Cu` and `Edge.Cuts` layers. Set the format to **Gerber** and click **Plot**. Then click **Generate Drill Files** and choose Excellon format, which lists every hole.
 
-2. **Import into your CNC software.** Common options:
-   - **FlatCAM** (free, open source): imports Gerbers and generates G-code
-   - **Candle** or **bCNC**: G-code senders for GRBL-based CNC machines
-   - **PCB-GCODE** (Eagle plugin also works with Gerber conversions)
+2. **Turn the Gerbers into machine instructions (G-code).** **FlatCAM** (free) reads Gerbers and writes G-code. A sender program such as **Candle** or **bCNC** then passes the G-code to the machine.
 
-3. **Set milling parameters in FlatCAM:**
-   - V-bit: 0.1mm tip, 30-degree angle
-   - Isolation width: 0.15mm (number of passes: 2-3 for wider isolation)
+3. **Set the milling values in FlatCAM:**
+   - Tool: a V-shaped bit with a 0.1mm tip and a 30-degree angle
+   - Isolation width: 0.15mm, with 2 or 3 passes for a wider channel
    - Feed rate: 100-200 mm/min
-   - Cut depth: 0.05-0.1mm (just deep enough to cut through the copper layer, typically 35 µm thick)
+   - Cut depth: 0.05-0.1mm. The copper is only 0.035 mm thick, so this just passes through it.
 
-4. **Secure the copper-clad board** to the CNC bed. Use double-sided tape or a vacuum table. The board must be perfectly flat; any warping will cause uneven cuts.
+4. **Fix the copper board** to the machine bed with double-sided tape. The board must lie flat: where it lifts, the cut is too deep, and where it sinks, copper remains.
 
-5. **Set the Z-origin** (tool height). Touch the bit to the board surface. A Z-probe or continuity tester helps find the exact surface. This is the most critical setup step: too shallow and traces short together, too deep and the bit wears out fast.
+5. **Set the tool height (the Z origin).** Lower the bit until it just touches the copper. A touch probe finds this point exactly. This setting decides the result: too high and copper is left between tracks, too low and the V-shaped bit cuts a wide channel that eats the tracks.
 
-6. **Mill the front copper layer.** Run the F.Cu isolation routing G-code. The CNC cuts channels around every pad and trace, leaving copper islands.
+6. **Mill the front copper.** Run the G-code for F.Cu.
 
-7. **Drill all holes.** Switch to a 0.8mm drill bit and run the Excellon drill file. The holes serve as alignment points when you flip the board.
+7. **Drill the holes.** Change to a 0.8mm drill and run the drill file. Two of the holes will line up the second face.
 
-8. **Flip the board for the back layer.** Use two drilled holes as alignment pins. Secure the board face-down. Re-probe the Z-height.
+8. **Turn the board over** on two pins through two drilled holes. Fix it and set the tool height again.
 
-9. **Mill the back copper layer.** Run the B.Cu isolation routing G-code.
+9. **Mill the back copper.** Run the G-code for B.Cu.
 
-10. **Mill the board outline.** Switch to a 1-2mm end mill and run the Edge.Cuts G-code to cut the board to its final shape.
+10. **Cut the outline.** Change to a 1-2mm end mill and run the G-code for Edge.Cuts.
 
-11. **Clean and inspect.** Remove copper dust with a brush. Inspect under magnification: check that all isolation channels are clean and no copper bridges remain between pads.
+11. **Clean and inspect.** Brush away the copper dust. With a magnifier, check that every channel is clean and no copper bridges two pads.
 </Steps>
 
-:::caution[Alignment is critical]
-Double-sided CNC milling requires precise alignment between front and back layers. Drill alignment holes first, then use dowel pins through those holes when you flip the board. Even 0.5mm misalignment can cause vias to miss their pads.
+:::caution[The two faces must line up]
+If the board moves by 0.5mm when you turn it over, the vias miss their pads on the second face. Always turn the board on pins through drilled holes, never by eye.
 :::
 
 ### Connecting Front and Back Layers (Manual Vias)
 
-CNC-milled boards do not have plated through-holes. You need to create manual vias:
+A factory coats the inside of each hole with copper. A milled board has bare holes, so a via joins nothing until you put a wire through it:
 
 <Steps>
-1. For each via, insert a short piece of bare copper wire (0.5mm diameter) through the drilled hole.
+1. Push a short piece of bare copper wire (0.5mm diameter) through the via hole.
 
-2. Solder the wire to the pad on the front side, trim it, then flip the board and solder it to the pad on the back side.
+2. Solder the wire to the pad on the front, then turn the board and solder it to the pad on the back.
 
-3. Trim excess wire flush with the solder joints.
+3. Cut the wire flush with both joints.
 </Steps>
-
-This adds time compared to professionally fabricated boards, but it works reliably for prototypes.
 
 ## Soldering SMD Components
 
 <InArticleAd />
 
 
-SMD soldering requires different tools than through-hole work.
+These parts need other tools than through-hole parts.
 
 ### Tools Needed
 
@@ -388,32 +377,32 @@ SMD soldering requires different tools than through-hole work.
 ### Soldering Order
 
 <Steps>
-1. **TQFP MCU first.** Apply solder paste to the TQFP-32 pads. Place the ATmega328P-AU with tweezers, aligning pin 1 with the pad 1 mark. Reflow with hot air at 250-280°C, holding the nozzle 2-3 cm above the chip. The paste will melt and self-align the chip. Inspect every pin under magnification for solder bridges.
+1. **The TQFP chip first,** while nothing is in the way. Put solder paste on the 32 pads. Place the ATmega328P-AU with tweezers, with its pin 1 dot at the pin 1 mark of the board. Heat it with hot air at 250-280°C from 2-3 cm above. When the paste melts, its surface tension pulls the chip into line with the pads. Check every pin with a magnifier for solder that bridges two pins.
 
-2. **Sensor ICs.** Apply paste and reflow the SHT30 and VEML7700 the same way. The SHT30 has an exposed pad on the bottom; make sure the paste connects it to the ground pad.
+2. **The sensors.** Solder the SHT30 and the VEML7700 with paste and hot air in the same way. The SHT30 has a metal pad under its body, which must also be soldered to its pad on the board.
 
-3. **LDO and crystal.** Solder the SOT-223 regulator and SMD crystal. These are larger and easier than the sensors.
+3. **The regulator and the crystal.** These are larger and easier.
 
-4. **0805 passives.** Tin one pad of each resistor/capacitor location with a small amount of solder. Place the component with tweezers, reflow the tinned pad, then solder the other pad. This "tack and solder" method is fast for 0805 parts.
+4. **The 0805 parts.** Melt a little solder on one pad. Hold the part with tweezers, melt that solder again and slide the part in. Then solder the other end.
 
-5. **USB connector.** Solder the Micro-B connector. The shield pins provide mechanical strength; solder them well.
+5. **The USB connector.** Solder its metal shell tabs well. They take the force each time a cable is plugged in.
 
-6. **Through-hole headers.** Solder the ISP and UART pin headers last, as they are the tallest components.
+6. **The through-hole headers,** which are the tallest parts.
 
-7. **Manual vias.** If you used CNC milling, solder all via wires now.
+7. **The via wires,** if the board was milled.
 </Steps>
 
 ### Common SMD Mistakes
 
 <Card title="Troubleshooting" icon="warning">
-- **Solder bridges on TQFP**: drag a clean, fluxed iron tip across the pins to wick away excess solder. Or use solder wick.
-- **Tombstoning** (0805 part stands up on one end): uneven solder paste or uneven heating. Remove, clean, and resolder.
-- **Cold joints**: dull, grainy appearance. Reheat with flux.
-- **Component shifted during reflow**: the component moved when you applied hot air. Use less airflow, or tack one side with an iron first.
+- **Solder bridges two TQFP pins**: add flux and draw a clean iron tip along the pins, or soak the solder up with solder wick.
+- **An 0805 part stands up on one end**: one pad melted before the other and pulled the part upright. Remove it, clean the pads and solder it again.
+- **A dull, grainy joint**: the solder did not flow. Add flux and heat it again.
+- **A part moved under the hot air**: use less air, or fix one end with the iron first.
 </Card>
 
 :::tip[Instrument it]
-A [sensor shield](/education/sensor-actuator-interfacing-stm32/) is only worth building if its readings can be trusted, and that is a layout problem. Keep the analog sensor traces short and away from the crystal, the switching regulator, and any PWM line, give each sensor a local decoupling capacitor, and pour a solid ground under the analog section so noise does not ride in on the measurement. A clean shield is the difference between a sensor you can [act on](https://siliconwit.io) and one whose jitter you learn to ignore.
+A [sensor board](/education/sensor-actuator-interfacing-stm32/) is worth building only if its readings can be trusted, and on this board that is decided by the layout. Keep the temperature sensor away from the regulator and the MCU, give each sensor its own decoupling capacitor, and keep the I2C tracks short and away from the crystal. Then the numbers it sends are ones you can [act on](https://siliconwit.io).
 :::
 
 ## First Power-On and Testing
@@ -421,14 +410,16 @@ A [sensor shield](/education/sensor-actuator-interfacing-stm32/) is only worth b
 <InArticleAd />
 
 
+A solder bridge here can short a USB port's 5 V to ground or put 5 V on a 3.3 V sensor. Check with a meter first, and make the first test from a USB charger, not a computer.
+
 <Steps>
-1. **Visual inspection.** Check every solder joint under magnification. Look for bridges on the TQFP pins especially.
+1. **Look.** Check every joint with a magnifier, the TQFP pins most of all.
 
-2. **Continuity check.** Verify no short between +5V and GND, or +3V3 and GND.
+2. **Measure with no power connected.** With a multimeter on continuity, check that no two of +5V, +3V3 and GND are joined.
 
-3. **Apply power via USB.** Plug in a USB cable. The power LED should light. Measure +5V at the MCU VCC pin and +3.3V at the sensor VDD pins.
+3. **Apply power through USB.** The power LED lights. Measure 5 V at the MCU VCC pin and 3.3 V at the sensor VDD pins. If a part becomes hot, unplug at once.
 
-4. **Flash the blink firmware** from Lesson 1 over the ISP header. If the LED blinks, the MCU and crystal are working.
+4. **Test the MCU.** Connect the programmer to the ISP header and run `avrdude -c usbasp -p m328p`. If it reports the device signature, the MCU is powered and soldered correctly. This board has no LED on an output pin, so the crystal is proved only by the serial text of the program below.
 </Steps>
 
 ## Firmware: Reading Sensors
@@ -436,7 +427,7 @@ A [sensor shield](/education/sensor-actuator-interfacing-stm32/) is only worth b
 <InArticleAd />
 
 
-Save this as `sensor_read.c`. It reads both I2C sensors and outputs data over UART at 9600 baud.
+A new ATmega328P runs from its internal clock. Set the fuses for the 16 MHz crystal once, with the `avrdude` fuse command of the through-hole breakout board, or the serial text is unreadable. Then save this program as `sensor_read.c`. It reads both sensors and sends the values over UART at 9600 baud.
 
 ```c
 /*
@@ -508,7 +499,7 @@ void i2c_stop(void) {
 }
 
 /* SHT30 (I2C address 0x44) */
-void sht30_read(int16_t *temp_raw, uint16_t *hum_raw) {
+void sht30_read(uint16_t *temp_raw, uint16_t *hum_raw) {
     uint8_t data[6];
 
     /* Send single-shot measurement command: 0x2400 (high repeatability) */
@@ -525,8 +516,8 @@ void sht30_read(int16_t *temp_raw, uint16_t *hum_raw) {
     data[5] = i2c_read_nack();
     i2c_stop();
 
-    *temp_raw = (data[0] << 8) | data[1];
-    *hum_raw = (data[3] << 8) | data[4];
+    *temp_raw = ((uint16_t)data[0] << 8) | data[1];
+    *hum_raw = ((uint16_t)data[3] << 8) | data[4];
 }
 
 /* VEML7700 (I2C address 0x10) */
@@ -550,7 +541,7 @@ uint16_t veml7700_read(void) {
     high = i2c_read_nack();
     i2c_stop();
 
-    return (high << 8) | low;
+    return ((uint16_t)high << 8) | low;
 }
 
 /* Simple integer-to-string for UART output */
@@ -564,7 +555,7 @@ void print_int(int16_t val) {
 }
 
 int main(void) {
-    int16_t temp_raw;
+    uint16_t temp_raw;
     uint16_t hum_raw;
     uint16_t lux_raw;
 
@@ -581,6 +572,8 @@ int main(void) {
 
         /* Read VEML7700 */
         lux_raw = veml7700_read();
+        /* Gain x1, 100 ms: 0.0576 lux per count */
+        uint16_t lux = (uint32_t)lux_raw * 576 / 10000;
 
         /* Output */
         uart_puts("T=");
@@ -588,7 +581,7 @@ int main(void) {
         uart_puts("C H=");
         print_int(hum_pct);
         uart_puts("% L=");
-        print_int(lux_raw);
+        print_int(lux);
         uart_puts(" lux\r\n");
 
         _delay_ms(2000);
@@ -619,31 +612,17 @@ T=23C H=45% L=310 lux
 
 <Card title="Lesson 2 Complete" icon="approve-check">
 
-**KiCad skills:**
-- Worked with SMD footprints (TQFP, 0805, SOT-223, DFN)
-- Designed a double-sided PCB with front and back copper layers
-- Used vias to route signals between layers
-- Set up fine-pitch design rules for TQFP routing
+**In KiCad** you chose surface-mount footprints (TQFP, 0805, SOT-223, DFN), set design rules that suit a 0.8mm pitch chip, and routed a two-layer board with vias.
 
-**Electronics skills:**
-- I2C bus design with pull-up resistors and multiple devices
-- Dual voltage rail design (5V MCU + 3.3V sensors)
-- SMD component selection and sizing (0805 passives)
+**In electronics** you built an I2C bus with pull-up resistors and two devices, and gave a board two supply voltages: 5V for the MCU and 3.3V for the sensors.
 
-**Manufacturing skills:**
-- CNC milling workflow (Gerber to FlatCAM to G-code)
-- Double-sided alignment technique with drilled reference holes
-- Manual via soldering for non-plated boards
+**In manufacturing** you took a board from Gerber files through FlatCAM to a milling machine, lined up its two faces on pins, and joined them with via wires.
 
-**Firmware skills:**
-- Bare-metal I2C (TWI) driver for ATmega328P
-- SHT30 temperature/humidity sensor communication
-- VEML7700 ambient light sensor communication
-- UART serial output for sensor data
+**In firmware** you wrote an I2C driver for the ATmega328P, read the SHT30 and the VEML7700, and sent the readings over UART.
 </Card>
 
 :::tip[Next Lesson]
-In [Lesson 3: STM32 USB Development Board](/education/pcb-design-kicad/stm32-usb-development-board), you will design a Blue Pill style board with the STM32F103, USB, and SWD debug header. This is your first fab house order: you will generate Gerbers, BOM, and pick-and-place files for JLCPCB.
+In the [STM32 USB development board](/education/pcb-design-kicad/stm32-usb-development-board/) you design a Blue Pill style board with an STM32F103 and USB, and you order it from a factory for the first time, with Gerber, parts list and placement files.
 :::
 
 <PcbDesignKicadComments />

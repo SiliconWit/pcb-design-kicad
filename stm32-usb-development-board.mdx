@@ -25,32 +25,25 @@ import { Card, CardGrid, Badge, Steps, LinkButton, FileTree } from '@astrojs/sta
 
 import PcbDesignKicadComments from '../../../../components/pcb-design-kicad/PcbDesignKicadComments.astro';
 
-In this lesson you will design a complete STM32F103C8T6 development board in the classic Blue Pill form factor. The board includes USB for programming and serial communication, an SWD debug header, dual crystal oscillators, 3.3V regulation, and all GPIO broken out to pin headers. More importantly, this is your first professional fab house order: you will generate Gerber, BOM, and pick-and-place files, then walk through the entire JLCPCB ordering process. #KiCad #STM32 #PCBDesign
+A board you solder yourself is limited by your hands. A chip with 48 pins, each half a millimetre from the next, is beyond most soldering irons. A factory can make and assemble such a board for the price of a meal, if you send it the right files. In this lesson you design a development board around the STM32F103C8T6 in the well-known Blue Pill shape, with USB, a debug connector and two crystals. Then you prepare the three kinds of file a factory needs and order assembled boards. #KiCad #STM32 #PCBDesign
+
+A fast chip takes its current in sharp pulses, so each of its supply pins gets its own small capacitor, placed right beside the pin:
 
 ```text
-  Decoupling Capacitor Placement
-  ──────────────────────────────────────────
-       100nF      100nF      100nF
-        │           │           │
-  VDD──┤───VDD────┤───VDD────┤───VDD
-        │           │           │
-  ┌─────┴───────────┴───────────┴─────┐
-  │     STM32F103C8T6                  │
-  │  Pin 24   Pin 36   Pin 48         │
-  │  (VDD)    (VDD)    (VDD)          │
-  └────────────────────────────────────┘
-        │           │           │
-  GND──┘───GND────┘───GND────┘───GND
-
-  Place each 100nF cap as close as
-  possible to its VDD/GND pin pair.
-  Short, wide traces to ground plane.
+  +3V3 ──┬───────────┬───────────┬──────
+         │           │           │
+       pin 24      pin 36      pin 48     STM32 VDD pins
+         │           │           │
+     C5 ─┴─      C6 ─┴─      C7 ─┴─       100nF each,
+        ─┬─         ─┬─         ─┬─       within 2 mm
+         │           │           │        of its pin
+  GND ───┴───────────┴───────────┴──────
 ```
 
 ## What We Are Building
 
 <Card title="STM32 Blue Pill Development Board" icon="star">
-A Blue Pill style development board built around the STM32F103C8T6 (ARM Cortex-M3, 72 MHz). The board provides USB connectivity for programming via the built-in bootloader, an SWD header for debugging, and two rows of pin headers exposing every GPIO pin. Power comes from USB 5V, regulated down to 3.3V by an AMS1117-3.3 LDO. This is the board you will send to JLCPCB for professional fabrication and partial assembly.
+A development board around the STM32F103C8T6, a 32-bit microcontroller (MCU) that runs at up to 72 MHz. USB powers the board and gives it a serial port on the computer. A 4-pin header connects a debugger, and two rows of pin headers bring out every input and output pin (GPIO). A regulator makes the chip's 3.3V from the 5V of USB. A factory makes this board and solders its surface-mount parts.
 </Card>
 
 **Board specifications:**
@@ -78,31 +71,9 @@ A Blue Pill style development board built around the STM32F103C8T6 (ARM Cortex-M
 | U2 | AMS1117-3.3 | SOT-223 | 1 | 3.3V LDO |
 | Y1 | 8 MHz | HC49/SMD or 3.2x2.5mm | 1 | HSE crystal |
 | Y2 | 32.768 kHz | 2x1.2mm SMD | 1 | LSE crystal (RTC) |
-
-```text
-  Gerber File Set for JLCPCB
-  ──────────────────────────────────────────
-  project-F_Cu.gtl      Front copper
-  project-B_Cu.gbl      Back copper
-  project-F_Mask.gts    Front solder mask
-  project-B_Mask.gbs    Back solder mask
-  project-F_Silkscreen.gto  Front silkscreen
-  project-B_Silkscreen.gbo  Back silkscreen
-  project-Edge_Cuts.gm1     Board outline
-  project.drl               Drill file
-  project-PTH.drl           Plated holes
-  project-NPTH.drl          Non-plated holes
-
-  Zip all files ──► Upload to JLCPCB
-  Also generate: BOM (.csv) + CPL (.csv)
-  for SMT assembly service.
-```
-
-| Reference | Value | Package | Qty | Function |
-|-----------|-------|---------|-----|----------|
 | C1, C2 | 20 pF | 0805 | 2 | HSE load caps |
 | C3, C4 | 6.8 pF | 0805 | 2 | LSE load caps |
-| C5-C9 | 100 nF | 0805 | 5 | Decoupling (each VDD pin) |
+| C5-C9 | 100 nF | 0805 | 5 | Decoupling (three VDD pins, VDDA, VBAT) |
 | C10 | 4.7 µF | 0805 | 1 | Bulk decoupling |
 | C11, C12 | 10 µF | 0805 | 2 | LDO input/output caps |
 | C13 | 100 nF | 0805 | 1 | NRST filter cap |
@@ -124,20 +95,20 @@ A Blue Pill style development board built around the STM32F103C8T6 (ARM Cortex-M
 <InArticleAd />
 
 
-The STM32F103C8T6 is an ARM Cortex-M3 microcontroller from STMicroelectronics. It runs at up to 72 MHz, has 64 KB of flash and 20 KB of SRAM, and includes peripherals like USB, I2C, SPI, UART, ADC, and timers. The "C8" in the part number tells you: C = 48 pins, 8 = 64 KB flash. The "T6" means LQFP package, industrial temperature range.
+The STM32F103C8T6 is a 32-bit ARM Cortex-M3 microcontroller from STMicroelectronics. It has 64 KB of program memory (flash) and 20 KB of working memory (SRAM), with USB, I2C, SPI, UART, an analog converter and timers built in. In the part number, C means 48 pins and 8 means 64 KB of flash. T6 means the flat LQFP package and the industrial temperature range.
 
 ### Clock Tree
 
-The STM32F103 has a flexible clock system:
+The chip can take its clock from several sources, and the board must provide the ones the design uses:
 
-- **HSI** (High Speed Internal): 8 MHz RC oscillator, available without any external components. Less accurate than a crystal.
-- **HSE** (High Speed External): 4-16 MHz crystal input. We use 8 MHz, which the PLL multiplies by 9 to reach 72 MHz.
-- **LSE** (Low Speed External): 32.768 kHz crystal for the Real-Time Clock (RTC). This frequency divides evenly into 1 Hz for timekeeping.
-- **PLL**: Takes HSE or HSI as input and multiplies it. HSE 8 MHz x 9 = 72 MHz system clock.
+- **HSI** (High Speed Internal): an 8 MHz oscillator inside the chip. It needs no parts but is not accurate enough for USB.
+- **HSE** (High Speed External): a crystal of 4 to 16 MHz on the board. This board uses 8 MHz.
+- **PLL** (phase-locked loop): a circuit in the chip that multiplies a clock. It multiplies the 8 MHz of the HSE by 9 to give the 72 MHz system clock.
+- **LSE** (Low Speed External): a 32.768 kHz crystal for the real-time clock (RTC). Divided by two 15 times, this frequency gives exactly one pulse a second.
 
 ### Why STM32 Matters for PCB Designers
 
-The STM32 family is one of the most widely used MCU families in professional products. Designing a board around it teaches you skills that transfer directly to commercial work: fine-pitch LQFP soldering, multi-rail power design, USB signal integrity, and proper decoupling for high-speed digital ICs. The Blue Pill form factor is compact enough to be challenging but simple enough for a third PCB project.
+Many commercial products use an STM32, and this board has the problems of most modern boards: fine pins, decoupling at every supply pin, two crystals and USB.
 
 ## Schematic Capture
 
@@ -148,42 +119,50 @@ Create a new KiCad project named `stm32-blue-pill`.
 
 <LinkButton href="https://github.com/SiliconWit/pcb-design-kicad/blob/main/schematics/stm32-usb-development-board.pdf" target="_blank" variant="secondary" icon="document">Download Schematic PDF</LinkButton>
 
+The PDF at this link is not a drawing of this board. It shows the ATmega328P sensor shield of the lesson before this one, so its chip, its connector and its part numbers all belong to another design. Build this board from the text alone.
+
 ### Power Supply: USB 5V to 3.3V
 
-The STM32F103 runs on 3.3V. USB provides 5V, so we need a voltage regulator.
+The STM32F103 works only up to 3.6 V on its supply. USB gives 5 V, so a regulator must make 3.3 V from it. The AMS1117-3.3 is a linear regulator of the low-dropout kind (LDO): it has three pins, needs only two capacitors, and loses the difference of 1.7 V as heat.
 
 <Steps>
-1. **Place the USB Mini-B connector.** Add `USB_B_Mini` from the Connector library. This provides VBUS (5V), D+, D-, and GND.
+1. **Place the USB Mini-B connector.** Add `USB_B_Mini` from the Connector library. Its pins are VBUS (5V), D+ and D- (the two data lines) and GND.
 
-2. **Place the AMS1117-3.3 LDO** (SOT-223). Connect VBUS to the LDO input through a 10 µF input capacitor (C11). Connect the LDO output to a `+3V3` power symbol through a 10 µF output capacitor (C12).
+2. **Place the AMS1117-3.3 regulator** (SOT-223 package). Connect VBUS to its input and a `+3V3` power symbol to its output.
 
-3. **Add power symbols.** Place `+5V` on the USB VBUS net, `+3V3` on the LDO output, and `GND` throughout.
+3. **Add its two capacitors.** Place C11 (10 µF) from the regulator input to `GND` and C12 (10 µF) from the regulator output to `GND`. This regulator can oscillate without a capacitor at its output.
 
-4. **Wire the power path.** USB VBUS to +5V, through C11 to LDO input, LDO output through C12 to +3V3. Keep the power LED (D1 + R4) connected from +3V3 to GND so it lights when 3.3V is present.
+4. **Add power symbols.** Place `+5V` on the USB VBUS net, `+3V3` on the regulator output, and `GND` on every ground connection.
+
+5. **Add the power LED.** Connect D1 and R4 in series from +3V3 to GND, so the LED lights when 3.3V is present.
 </Steps>
 
 ### MCU and Decoupling
 
-The STM32F103C8T6 in LQFP-48 has multiple VDD and VSS pins. Every VDD pin needs its own 100 nF decoupling capacitor placed as close to the pin as possible.
+A chip that switches 72 million times a second takes its current in pulses a few nanoseconds long. The track from the regulator has inductance, which resists a fast change of current, so for a moment the voltage at the pin dips and the chip can reset or make errors. A 100 nF decoupling capacitor at the pin is a local store of charge that supplies the pulse. It works only if it is close: as a rough guide, each millimetre of track adds about 1 nH, and a 50 mA pulse that rises in 5 ns loses 10 mV across each nanohenry.
+
+The chip has three VDD pins, an analog supply pin (VDDA) and a backup supply pin (VBAT). Each gets its own capacitor.
 
 <Steps>
-1. **Place the STM32F103C8T6.** Add `STM32F103C8Tx` from the MCU_ST_STM32F1 library. The LQFP-48 variant has pins on all four sides.
+1. **Place the STM32F103C8T6.** Add `STM32F103C8Tx` from the MCU_ST_STM32F1 library.
 
-2. **Connect power pins.** Wire VDD (pins 24, 36, 48) and VDDA (pin 9) to `+3V3`. Wire VSS (pins 23, 35, 47) and VSSA (pin 8) to `GND`.
+2. **Connect the supply pins.** Wire VDD (pins 24, 36, 48) and VDDA (pin 9) to `+3V3`. Wire VSS, the ground pins (23, 35, 47), and VSSA (pin 8) to `GND`.
 
-3. **Add decoupling capacitors.** Place 100 nF caps C5, C6, C7 on VDD pins 24, 36, and 48 respectively. Place C14 (1 µF) on VDDA (pin 9) for the analog supply. Place C10 (4.7 µF) as bulk decoupling near the MCU.
+3. **Add the decoupling capacitors.** Place 100 nF capacitors C5, C6 and C7 at VDD pins 24, 36 and 48, C8 at VDDA (pin 9) and C9 at VBAT (pin 1). Add C14 (1 µF) at VDDA as well, because the analog converter needs an especially quiet supply. Add C10 (4.7 µF) near the MCU as a larger store that refills the small capacitors.
 
-4. **VBAT pin.** Connect VBAT (pin 1) to `+3V3`. If you want battery backup for the RTC later, this is the pin you would connect to a coin cell instead.
+4. **VBAT pin.** Connect VBAT (pin 1) to `+3V3`. This pin keeps the real-time clock running. A later design can connect a coin cell here.
 </Steps>
 
 ### HSE Crystal (8 MHz)
 
+A crystal keeps its marked frequency only when it sees the load capacitance its maker specifies. Two capacitors and the board's stray capacitance make that load.
+
 <Steps>
 1. **Place the 8 MHz crystal** between OSC_IN (pin 5) and OSC_OUT (pin 6).
 
-2. **Add load capacitors.** Place C1 (20 pF) from OSC_IN to GND and C2 (20 pF) from OSC_OUT to GND. The exact capacitor value depends on the crystal's specified load capacitance (typically 10-20 pF). For a crystal with 20 pF load capacitance, use 33 pF caps (accounting for ~5 pF PCB stray capacitance). For a 10 pF load crystal, 20 pF caps work well.
+2. **Add load capacitors.** Place C1 (20 pF) from OSC_IN to GND and C2 (20 pF) from OSC_OUT to GND. The two capacitors act in series, so each is twice the load that remains after the stray capacitance of pins and tracks is taken away: $C = 2\,(C_L - C_{\text{stray}})$, where $C_L$ is the specified load capacitance and $C_{\text{stray}}$ is about 5 pF. A crystal with 20 pF load capacitance needs $2 \times (20 - 5) = 30\,\text{pF}$ capacitors. The 20 pF capacitors on this board suit a crystal with 15 pF load capacitance.
 
-3. **No series resistors needed.** The STM32F103 datasheet does not require external series resistors on the HSE pins for most crystals.
+3. **No series resistor.** For most crystals the STM32F103 needs no resistor between its pins and the crystal.
 </Steps>
 
 ### LSE Crystal (32.768 kHz)
@@ -191,84 +170,88 @@ The STM32F103C8T6 in LQFP-48 has multiple VDD and VSS pins. Every VDD pin needs 
 <Steps>
 1. **Place the 32.768 kHz crystal** between OSC32_IN (pin 3) and OSC32_OUT (pin 4).
 
-2. **Add load capacitors.** Place C3 (6.8 pF) from OSC32_IN to GND and C4 (6.8 pF) from OSC32_OUT to GND. The 32.768 kHz crystal is sensitive; use the datasheet-recommended values.
+2. **Add load capacitors.** Place C3 (6.8 pF) from OSC32_IN to GND and C4 (6.8 pF) from OSC32_OUT to GND. This oscillator runs on very little power and stops easily, so use the values the crystal's data sheet gives.
 </Steps>
 
 :::tip[Crystal placement]
-Both crystals should be placed as close to the MCU as physically possible during PCB layout. Long traces between crystal pins and the MCU add parasitic capacitance and can prevent oscillation, especially for the 32.768 kHz LSE crystal.
+In the layout, place both crystals as close to the MCU as you can. A long track adds stray capacitance and can stop the oscillator, the 32.768 kHz one most easily.
 :::
 
 ### Reset Circuit
 
+NRST restarts the chip when it is pulled to 0 V. The resistor holds it high, and the capacitor absorbs noise spikes that would restart the chip.
+
 <Steps>
-1. **NRST pin** (pin 7). Connect a 100 nF capacitor (C13) from NRST to GND for noise filtering.
+1. **NRST pin** (pin 7). Connect a 100 nF capacitor (C13) from NRST to GND.
 
 2. **Pull-up resistor.** Connect R2 (10 kΩ) from NRST to +3V3.
 
-3. **Reset button.** Place an SMD tactile switch (SW1) from NRST to GND. Pressing it pulls NRST low and resets the MCU.
+3. **Reset button.** Place an SMD tactile switch (SW1) from NRST to GND.
 </Steps>
 
 ### USB Circuit
 
-The STM32F103 has a built-in USB full-speed (12 Mbps) peripheral. The USB data lines connect to PA11 (USB_DM / D-) and PA12 (USB_DP / D+).
+USB carries data on two wires, D+ and D-. The STM32F103 has a full-speed (12 Mbps) USB circuit inside, on pins PA11 (D-) and PA12 (D+). To know that a device is present, the computer watches the two wires for a steady voltage, and one resistor on the board provides it.
 
 <Steps>
-1. **Wire USB data lines.** Connect the USB connector D- to PA11 and D+ to PA12.
+1. **Wire the USB data lines.** Connect the USB connector D- to PA11 and D+ to PA12.
 
-2. **D+ pull-up resistor.** Place R1 (1.5 kΩ) from PA12 (D+) to +3V3. This pull-up tells the USB host that a full-speed device is connected. Without it, the host will not detect the board.
+2. **D+ pull-up resistor.** Place R1 (1.5 kΩ) from PA12 (D+) to +3V3. A pull-up on D+ means "a full-speed device is here". The value 1.5 kΩ is fixed by the USB standard.
 
-3. **No external ESD protection is strictly required** for a development board, but if you want to add it, place a USBLC6-2SC6 on the USB data lines.
+3. **Protection against static discharge is optional** on a development board. To add it, place a USBLC6-2SC6 on the data lines.
 </Steps>
 
 :::caution[USB D+ pull-up is mandatory]
-The 1.5 kΩ pull-up on D+ is what signals the USB host to begin enumeration. If you forget this resistor, the board will power on but the computer will never see the USB device. Some STM32 variants have an internal pull-up that can be software-controlled, but the STM32F103 does not.
+Without this resistor the board powers on and the computer never shows a USB device. Some STM32 chips have the pull-up inside. The STM32F103 does not.
 :::
 
 ### SWD Debug Header
 
+SWD (serial wire debug) is how a program enters this chip. Through two signal pins, a debugger such as an ST-Link writes the flash and can stop and inspect the program.
+
 <Steps>
-1. **Place a 1x4 pin header** (J2) for SWD. The four pins are: SWDIO (PA13), SWCLK (PA14), GND, and 3V3.
+1. **Place a 1x4 pin header** (J2) with the pins SWDIO, SWCLK, GND and 3V3.
 
-2. **Wire SWDIO** to PA13 (pin 34) and **SWCLK** to PA14 (pin 37). These pins default to SWD function after reset, so no remapping is needed.
+2. **Wire SWDIO** to PA13 (pin 34) and **SWCLK** to PA14 (pin 37). These pins are SWD pins after every reset.
 
-3. **Connect GND and 3V3** on the header. The 3V3 pin allows the debugger to sense the target voltage (and optionally power the board from the debugger).
+3. **Connect GND and 3V3** on the header. Through the 3V3 pin the debugger measures the board's voltage, and it can also power the board.
 </Steps>
 
 ### Boot Configuration
 
-The STM32F103 boot mode is selected by the Boot0 and Boot1 pins at reset:
+At each reset the chip reads two pins, Boot0 and Boot1, to decide where to start: your program in flash, or a built-in loader that accepts a new program over a serial port.
 
 | Boot1 | Boot0 | Mode |
 |-------|-------|------|
 | X | 0 | Boot from flash (normal operation) |
-| 0 | 1 | Boot from system memory (USB/UART bootloader) |
+| 0 | 1 | Boot from system memory (UART bootloader on USART1) |
 | 1 | 1 | Boot from SRAM |
 
 <Steps>
-1. **Boot0 jumper.** Place a 1x3 pin header (JP1) with the center pin connected to Boot0 (pin 44). Connect one outer pin to GND (normal boot) and the other to +3V3 (bootloader mode). A jumper cap selects the mode. Add R3 (100 kΩ) from Boot0 to GND as a default pull-down so the board boots from flash even without the jumper.
+1. **Boot0 jumper.** Place a 1x3 pin header (JP1) with its center pin on Boot0 (pin 44), one outer pin on GND (normal start) and the other on +3V3 (built-in loader). A jumper cap selects one. Add R3 (100 kΩ) from Boot0 to GND, so the board starts from flash when no jumper is fitted.
 
-2. **Boot1.** Tie Boot1 (pin 20, PB2) to GND with a direct connection. SRAM boot is rarely needed on a development board.
+2. **Boot1.** Connect Boot1 (pin 20, PB2) to GND. Starting from SRAM is rarely needed.
 </Steps>
 
 ### User LED and GPIO Headers
 
 <Steps>
-1. **User LED.** Connect D2 (LED) and R5 (330 Ω) in series from PC13 (pin 2) to +3V3. Note: on the STM32, GPIO pins sink current when set low, so the LED lights when PC13 outputs low.
+1. **User LED.** Connect D2 and R5 (330 Ω) in series from +3V3 to PC13 (pin 2). The LED lights when the program sets PC13 low, because current then flows from +3V3 through the LED into the pin.
 
-2. **GPIO headers.** Place two 1x20 pin headers (J3 and J4) on opposite sides of the board. Map all remaining GPIO pins to these headers in a logical order, matching the Blue Pill pinout as closely as possible. Include +3V3, +5V, and GND pins on the headers.
+2. **GPIO headers.** Place two 1x20 pin headers (J3 and J4). Connect all remaining GPIO pins to them in the order of the Blue Pill, and include +3V3, +5V and GND pins.
 
-3. **Run ERC.** Fix all errors and warnings before proceeding.
+3. **Run the electrical rules check (ERC)** and correct every error and warning.
 </Steps>
 
 ### Assign Footprints
 
-Open **Tools > Assign Footprints** and set:
+A footprint is the pattern of pads one part needs on the board. Open **Tools > Assign Footprints** and set:
 
 | Symbol | Footprint |
 |--------|-----------|
 | STM32F103C8Tx | `Package_QFP:LQFP-48_7x7mm_P0.5mm` |
 | AMS1117-3.3 | `Package_TO_SOT_SMD:SOT-223-3_TabPin2` |
-| Crystal 8MHz | `Crystal:Crystal_SMD_3215-4Pin_3.2x1.5mm` |
+| Crystal 8MHz | `Crystal:Crystal_SMD_3225-4Pin_3.2x2.5mm` |
 | Crystal 32.768kHz | `Crystal:Crystal_SMD_2012-2Pin_2.0x1.2mm` |
 | USB_B_Mini | `Connector_USB:USB_Mini-B_Lumberg_2486_01_Horizontal` |
 | C (0805) | `Capacitor_SMD:C_0805_2012Metric` |
@@ -287,76 +270,76 @@ Open **Tools > Assign Footprints** and set:
 ### Board Setup
 
 <Steps>
-1. **Board outline.** On the Edge.Cuts layer, draw a 55 x 25 mm rectangle. This is the classic Blue Pill form factor, a narrow board designed to straddle a breadboard.
+1. **Board outline.** On the Edge.Cuts layer, draw a 55 x 25 mm rectangle. This is the Blue Pill shape: narrow enough to sit across the middle of a breadboard.
 
-2. **Layer setup.** This is a 2-layer board: F.Cu and B.Cu. Verify in **Board Setup > Board Stackup > Physical Stackup** that you have two copper layers with 1.6mm FR-4 substrate.
+2. **Layer setup.** The board has two copper layers, F.Cu (front) and B.Cu (back). Check in **Board Setup > Board Stackup > Physical Stackup** that it shows two copper layers on 1.6mm FR-4, the usual glass and epoxy board material.
 
-3. **Design rules for JLCPCB.** Set the following minimums in **Board Setup > Design Rules**:
+3. **Design rules for JLCPCB.** A design rule is a limit KiCad holds you to. Here the limits come from what the factory can make. Set them in **Board Setup > Design Rules**:
    - Minimum track width: 0.15 mm
    - Minimum clearance: 0.15 mm
    - Minimum via drill: 0.3 mm
    - Minimum via diameter: 0.6 mm
-   - Default track width: 0.25 mm (signal), 0.4 mm (power)
+   - Default track width: 0.25 mm for signals, a little narrower than the 0.3 mm pads of the chip, and 0.4 mm for supply tracks, which carry more current
 </Steps>
+
+:::tip[JLCPCB design rules]
+JLCPCB's standard process makes tracks and gaps down to 0.127 mm and via holes down to 0.3 mm. The rules above stay just above these limits.
+:::
 
 ### Component Placement
 
 <Steps>
-1. **Update PCB from schematic** (F8). All components appear in a cluster.
+1. **Update PCB from schematic** (F8). All footprints appear in one group.
 
-2. **USB connector** at the top edge, centered on the narrow side, plug facing outward.
+2. **USB connector** at the middle of one short edge, with its opening toward the outside.
 
-3. **LDO (U2)** close to the USB connector with C11 and C12 immediately adjacent to its input and output pins. The LDO thermal pad should connect to a ground pour for heat dissipation.
+3. **Regulator (U2)** close to the USB connector, with C11 and C12 against its input and output pins. Its large tab carries its heat into the copper, so give the tab a wide copper area.
 
-4. **MCU (U1)** in the center of the board. Rotate it so that the USB data pins (PA11, PA12) face the USB connector, keeping those traces short.
+4. **MCU (U1)** in the center. Turn it so that PA11 and PA12 face the USB connector, which keeps the USB tracks short.
 
-5. **8 MHz crystal (Y1)** within 5 mm of OSC_IN/OSC_OUT pins, with C1 and C2 right next to it.
+5. **8 MHz crystal (Y1)** within 5 mm of the OSC_IN and OSC_OUT pins, with C1 and C2 beside it.
 
-6. **32.768 kHz crystal (Y2)** within 3 mm of the OSC32 pins. This crystal is more sensitive to parasitic capacitance than the 8 MHz one. Place C3 and C4 adjacent.
+6. **32.768 kHz crystal (Y2)** within 3 mm of the OSC32 pins, with C3 and C4 beside it.
 
-7. **Decoupling capacitors** (C5-C9) each within 2 mm of its corresponding VDD pin. This is not optional; moving them farther away degrades power integrity at 72 MHz.
+7. **Decoupling capacitors** (C5-C9), each within 2 mm of its supply pin. Farther away they stop doing their work.
 
-8. **GPIO headers** (J3, J4) along the long edges of the board, 2.54mm pitch, one row on each side. This is the signature Blue Pill layout.
+8. **GPIO headers** (J3, J4) along the two long edges, at 2.54mm pin spacing.
 
-9. **SWD header** (J2) at the bottom edge of the board.
+9. **SWD header** (J2) at the short edge opposite the USB connector.
 
-10. **Boot0 jumper** (JP1) and **reset button** (SW1) on the top side, accessible but out of the way.
+10. **Boot0 jumper** (JP1) and **reset button** (SW1) on the front, where a finger can reach them.
 </Steps>
 
 ### Routing
 
 <Steps>
-1. **USB traces first.** Route D+ and D- from the USB connector to PA11/PA12. Keep these traces short (under 25 mm), matched in length (within 2 mm of each other), and on the same layer. Use 0.3 mm width for the data lines. Avoid vias on USB data traces.
+1. **USB tracks first.** Route D+ and D- from the connector to PA12 and PA11. The two signals work as a pair, so they must arrive together and see the same surroundings: keep them side by side on one layer, under 25 mm long, equal in length to within 2 mm, 0.3 mm wide, and with no vias.
 
-2. **Crystal traces.** Route HSE and LSE crystal traces as short as possible. Do not route any other signals between the crystal and the MCU pins. Keep digital signals away from the crystal area.
+2. **Crystal tracks.** Make the tracks of both crystals as short as possible, and route no other signal between a crystal and the MCU.
 
-3. **Power traces.** Route +3V3 and +5V using 0.4 mm traces. The main power path from USB through the LDO should be direct and short.
+3. **Supply tracks.** Route +3V3 and +5V with 0.4 mm tracks. Keep the path from USB through the regulator short and direct.
 
-4. **Decoupling capacitor traces.** Route each 100 nF cap directly to its VDD pin and to the nearest GND via. The loop area (VDD pin, trace to cap, cap, trace to GND via) should be as small as possible.
+4. **Decoupling capacitors.** Route each 100 nF capacitor straight to its VDD pin and to the nearest GND via. The loop from pin to capacitor to ground and back must be as small as you can make it, because the loop is the inductance that slows the current.
 
-5. **GPIO to headers.** Route the remaining GPIO pins to the edge headers. These are low-speed signals, so routing is straightforward. Use 0.25 mm traces.
+5. **GPIO to headers.** Route the remaining pins to the headers with 0.25 mm tracks. These signals are slow, so any reasonable path works.
 
-6. **Ground pour.** Add a GND copper zone on both F.Cu and B.Cu. Fill with `B` (Build All Zones). The ground pour on the back layer acts as a ground plane, improving signal integrity and providing a return path for high-frequency currents.
+6. **Ground pour.** Add a GND copper zone on F.Cu and on B.Cu and fill them with `B` (Fill All Zones). A large unbroken area of ground copper under the signals is called a ground plane. Every signal's current returns through it by the shortest path, which keeps noise low.
 
-7. **Add stitching vias.** Place GND vias around the board perimeter and between the two ground pours. This ties the front and back ground planes together. Add extra stitching vias near the USB connector and MCU.
+7. **Add stitching vias.** Place GND vias around the board edge, and more near the USB connector and the MCU. They join the front and back pours so the two act as one.
 
-8. **Run DRC.** Zero errors, zero unconnected nets.
+8. **Run the design rules check (DRC).** Correct it until there are no errors and no unconnected nets.
 </Steps>
-
-:::tip[JLCPCB design rules]
-JLCPCB's standard process supports 0.127 mm (5 mil) minimum trace/space, 0.3 mm minimum via drill, and 0.15 mm minimum annular ring. If you stay above these limits, your boards will pass their review without issues. The values we set (0.15 mm trace, 0.3 mm drill) include a small safety margin.
-:::
 
 ## Manufacturing: First Fab House Order
 
 <InArticleAd />
 
 
-This is the key section of this lesson. You will generate all the files needed for professional PCB fabrication and assembly, then walk through the JLCPCB ordering process.
+The factory needs three kinds of file. Gerber and drill files describe the bare board. The bill of materials (BOM) says which part goes at each reference. The placement file says where each part sits and which way it is turned.
 
 ### Generating Gerber Files
 
-Gerber files describe each layer of your PCB in a format that every fab house understands.
+A Gerber file is a flat picture of one layer: where the copper, the solder mask (the protective coating) or the printed text goes. Every board factory reads this format.
 
 <Steps>
 1. **Open the Plot dialog.** In the PCB Editor, go to **File > Plot**.
@@ -388,15 +371,25 @@ Gerber files describe each layer of your PCB in a format that every fab house un
    - Check "PTH and NPTH in single file"
    - Click **Generate Drill File**.
 
-6. **Verify in Gerber viewer.** Open **Inspect > Gerber Viewer** (or use an external viewer like gerbv). Load all Gerber files and the drill file. Inspect every layer. Check that the board outline is correct, pads are not missing, and the drill holes align with pad centers.
+6. **Look at the files in a Gerber viewer.** Open the **Gerber Viewer** from the KiCad project manager (or use gerbv). Load all the Gerber files and the drill file. Check that the outline is right, no pad is missing, and each hole sits in the center of its pad. The factory makes exactly what these files show, not what your KiCad project shows.
 </Steps>
+
+The set of files, where `project` is your project name:
+
+| File | Layer |
+|------|-------|
+| `project-F_Cu.gtl`, `project-B_Cu.gbl` | Front and back copper |
+| `project-F_Mask.gts`, `project-B_Mask.gbs` | Front and back solder mask |
+| `project-F_Silkscreen.gto`, `project-B_Silkscreen.gbo` | Front and back printed text |
+| `project-Edge_Cuts.gm1` | Board outline |
+| `project.drl` | Holes |
 
 ### Generating BOM for SMT Assembly
 
-JLCPCB's SMT assembly service requires a Bill of Materials in a specific CSV format.
+The factory solders the surface-mount parts (SMT assembly) from the stock of its partner LCSC. So the BOM must give an LCSC part number for every part, in a CSV file (text with commas between columns).
 
 <Steps>
-1. **Open the BOM export.** In the Schematic Editor, go to **Tools > Edit Symbol Fields**. Make sure every component that JLCPCB will assemble has an LCSC part number in a custom field (add a field named "LCSC" if it does not exist).
+1. **Add the part numbers.** In the Schematic Editor, go to **Tools > Edit Symbol Fields**. Give every part that JLCPCB will solder an LCSC part number in a field named "LCSC" (add the field if it does not exist).
 
 2. **Common LCSC part numbers** for this design:
 
@@ -417,7 +410,7 @@ JLCPCB's SMT assembly service requires a Bill of Materials in a specific CSV for
    | 8 MHz crystal | C16172 |
    | 32.768 kHz crystal | C32346 |
 
-3. **Export the BOM.** Go to **File > Export > BOM** or use a BOM export plugin. The JLCPCB format needs these columns: `Comment`, `Designator`, `Footprint`, `LCSC Part Number`. You can format this manually in a spreadsheet or use a KiCad BOM plugin configured for JLCPCB.
+3. **Export the BOM.** Go to **Tools > Generate Bill of Materials** or use a BOM export plugin. The JLCPCB format needs these columns: `Comment`, `Designator`, `Footprint`, `LCSC Part Number`. You can format this manually in a spreadsheet or use a KiCad BOM plugin configured for JLCPCB.
 
 4. **Save as CSV.** Example rows:
 
@@ -431,7 +424,7 @@ JLCPCB's SMT assembly service requires a Bill of Materials in a specific CSV for
 
 ### Generating Pick-and-Place (CPL) File
 
-The pick-and-place file (also called centroid or CPL file) tells the assembly machine where to place each component on the board.
+The pick-and-place file (also called the centroid or CPL file) tells the assembly machine, for each part, the position of its center, the face of the board and the angle of rotation. A wrong angle puts an LED or a chip on its pads the wrong way round, with no error message.
 
 <Steps>
 1. **Export from KiCad.** In the PCB Editor, go to **File > Fabrication Outputs > Component Placement (.pos file)**.
@@ -441,22 +434,22 @@ The pick-and-place file (also called centroid or CPL file) tells the assembly ma
    - Units: **Millimeters**
    - Files: **Single file for board**
 
-3. **Reformat for JLCPCB.** JLCPCB expects columns: `Designator`, `Mid X`, `Mid Y`, `Rotation`, `Layer`. KiCad's output uses `Ref`, `PosX`, `PosY`, `Rot`, `Side`. Rename the columns accordingly. You can do this in a text editor or spreadsheet.
+3. **Rename the columns for JLCPCB.** KiCad writes `Ref`, `PosX`, `PosY`, `Rot`, `Side`. JLCPCB expects `Designator`, `Mid X`, `Mid Y`, `Rotation`, `Layer`. Change the names in a text editor or a spreadsheet.
 
-4. **Check rotation offsets.** JLCPCB and KiCad sometimes disagree on 0-degree rotation for certain components. The STM32 LQFP-48 and SOT-223 are common enough that JLCPCB handles them correctly, but verify after uploading.
+4. **Check the rotations after you upload.** KiCad and JLCPCB do not always agree on which direction is 0 degrees for a part. The preview on the order page shows each part as it will be placed.
 </Steps>
 
 ### JLCPCB Order Walkthrough
 
 <Steps>
-1. **Create an account** at [jlcpcb.com](https://jlcpcb.com) if you do not have one.
+1. **Create an account** at [jlcpcb.com](https://jlcpcb.com).
 
 2. **Upload Gerbers.** Click "Order Now" on the homepage. Drag and drop your `gerbers/` folder (or a ZIP of the Gerber and drill files) onto the upload area. JLCPCB's viewer will show a preview of your board.
 
 3. **Set board parameters:**
    - Layers: 2
    - Dimensions: 55 x 25 mm (auto-detected)
-   - Quantity: 5 (the minimum; costs roughly $2-5)
+   - Quantity: 5 (the minimum; costs roughly 2 to 5 USD)
    - PCB thickness: 1.6 mm
    - Surface finish: HASL (with lead) for cheapest, or LeadFree HASL
    - Solder mask color: green (cheapest and fastest)
@@ -472,7 +465,7 @@ The pick-and-place file (also called centroid or CPL file) tells the assembly ma
 5. **Upload BOM and CPL files.** Click "Add BOM File" and "Add CPL File". Upload the CSV files you generated.
 
 6. **Review component matching.** JLCPCB shows each BOM line matched to a part from their inventory. Green check marks mean the part is in stock. Yellow warnings mean you need to confirm or substitute. Common issues:
-   - Extended parts (not in their basic library) cost an extra $3 per unique part
+   - Extended parts (not in their basic library) cost an extra 3 USD per unique part
    - Out-of-stock parts need substitution with a compatible alternative
    - Confirm the footprint matches for each component
 
@@ -485,15 +478,15 @@ The pick-and-place file (also called centroid or CPL file) tells the assembly ma
 
 | Item | Approximate Cost (USD) |
 |------|----------------------|
-| 5x bare PCBs (2-layer, 55x25mm) | $2 - $5 |
-| SMT assembly setup fee | $8 |
-| Component cost (basic parts) | $3 - $5 |
-| Extended parts surcharge | $3 per unique extended part |
-| Shipping (standard) | $3 - $8 |
-| **Total (5 assembled boards)** | **$15 - $30** |
+| 5x bare PCBs (2-layer, 55x25mm) | 2 to 5 USD |
+| SMT assembly setup fee | 8 USD |
+| Component cost (basic parts) | 3 to 5 USD |
+| Extended parts surcharge | 3 USD per unique extended part |
+| Shipping (standard) | 3 to 8 USD |
+| **Total (5 assembled boards)** | **15 to 30 USD** |
 
 :::tip[Save money on your first order]
-Use only "Basic" parts from JLCPCB's library to avoid the $3 extended part fee. The STM32F103C8T6 (C8734) is a basic part and so are most 0805 passives. Check part availability before finalizing your schematic.
+Parts in JLCPCB's "Basic" list carry no extra fee, and most 0805 resistors and capacitors are in it. Check the list and the stock of each part before you finish the schematic.
 :::
 
 ## Soldering Remaining Components
@@ -501,16 +494,16 @@ Use only "Basic" parts from JLCPCB's library to avoid the $3 extended part fee. 
 <InArticleAd />
 
 
-JLCPCB's SMT assembly handles the fine-pitch MCU, passives, and other SMD parts. But through-hole components (pin headers, jumpers) are not assembled by the standard SMT service. You will solder these by hand.
+The factory solders the surface-mount parts. Its standard service does not fit through-hole parts, so you solder the pin headers yourself.
 
 <Steps>
-1. **GPIO headers (J3, J4).** Insert the 1x20 pin headers from the bottom of the board so the long pins face downward (for breadboard use). Solder from the top side. Make sure the headers are straight before soldering all pins: tack one pin on each end first, check alignment, then solder the rest.
+1. **GPIO headers (J3, J4).** Insert the 1x20 pin headers from the back of the board, so the long pins point down into a breadboard, and solder on the front. Solder one pin at each end first, check that the header stands straight, then solder the rest.
 
-2. **SWD header (J2).** Insert the 1x4 pin header and solder.
+2. **SWD header (J2).** Insert the 1x4 pin header and solder it.
 
-3. **Boot0 jumper header (JP1).** Insert the 1x3 pin header and solder. Place a jumper cap connecting the center pin to the GND side for normal boot-from-flash operation.
+3. **Boot0 jumper (JP1).** Insert the 1x3 pin header and solder it. Fit a jumper cap from the center pin to the GND side, for a normal start from flash.
 
-4. **Inspect all joints.** Check for cold joints, bridges, and missed pins. The factory-assembled SMD joints should already be perfect.
+4. **Inspect your joints** for bridges, dull joints and pins you missed.
 </Steps>
 
 ## First Power-On and Testing
@@ -518,24 +511,26 @@ JLCPCB's SMT assembly handles the fine-pitch MCU, passives, and other SMD parts.
 <InArticleAd />
 
 
+A short on this board can damage it or the USB port that feeds it. Check with a meter before you plug it in, and use a USB charger or power bank for the first test, not a computer.
+
 <Steps>
-1. **Visual inspection.** Before applying any power, inspect the entire board under magnification. Look for solder bridges on the LQFP-48 MCU pins and the USB connector pads. Check that all components are present and correctly oriented (LEDs, electrolytic caps, ICs).
+1. **Look.** With a magnifier, look for solder that bridges two pins of the MCU or the USB connector. Check that every part is present and the right way round.
 
-2. **Continuity check.** Use a multimeter in continuity mode. Verify there is no short between +3V3 and GND, or +5V and GND.
+2. **Measure with no power connected.** With a multimeter on continuity, check that no two of +5V, +3V3 and GND are joined.
 
-3. **Power on via USB.** Plug the board into a USB port using a data-capable cable. The power LED (D1) should light up.
+3. **Power the board through USB.** The power LED (D1) lights. If a part becomes hot, unplug at once.
 
-4. **Measure voltages.** Check +5V at the USB VBUS net (should be 4.8-5.2V). Check +3V3 at the LDO output and at the MCU VDD pins (should be 3.25-3.35V). Check VDDA as well.
+4. **Measure the voltages.** +5V on the VBUS net must be 4.8-5.2V. +3V3 at the regulator output, at the MCU VDD pins and at VDDA must be 3.25-3.35V.
 
-5. **Test SWD connection.** Connect an ST-Link V2 (or compatible debugger) to the SWD header. Use `st-info --probe` (from stlink tools) or STM32CubeProgrammer to verify communication.
+5. **Test the SWD connection.** Connect an ST-Link V2 debugger to the SWD header, and run `st-info --probe` (from the stlink tools) or use STM32CubeProgrammer.
 
    ```bash
    st-info --probe
    ```
 
-   You should see output indicating the STM32F103C8T6 with 64 KB flash.
+   The output names an STM32F103 device with 64 KB of flash.
 
-6. **Test the reset button.** While monitoring the SWD connection or an LED, press the reset button. The MCU should reset and restart.
+6. **Test the reset button.** Press it while the debugger is connected or an LED program runs. The MCU restarts.
 </Steps>
 
 ## Firmware: USB CDC Serial
@@ -543,12 +538,12 @@ JLCPCB's SMT assembly handles the fine-pitch MCU, passives, and other SMD parts.
 <InArticleAd />
 
 
-Let's write a minimal program that makes the STM32 appear as a virtual serial port (USB CDC) and sends a message to the host computer.
+This program makes the STM32 appear on the computer as a serial port (the USB class called CDC) and sends a line of text. It tests the crystal, the PLL, the USB tracks and the pull-up resistor together. Use a USB cable that has data wires.
 
 <Tabs>
 <TabItem label="STM32CubeIDE">
 
-The easiest way to get USB CDC running is with STM32CubeIDE and HAL:
+The quickest way is STM32CubeIDE with its HAL library:
 
 <Steps>
 1. **Create a new project** in STM32CubeIDE. Select STM32F103C8Tx as the target.
@@ -574,7 +569,7 @@ HAL_Delay(1000);
 </TabItem>
 <TabItem label="Bare Metal (arm-none-eabi-gcc)">
 
-For those who prefer working without HAL, here is a minimal USB CDC implementation outline. A full bare-metal USB CDC stack is several hundred lines, so we reference the libopencm3 library which provides a clean USB API.
+Without HAL, the libopencm3 library gives a small USB interface. The program below is an outline: the full descriptors are in the library's examples.
 
 <Steps>
 1. **Install libopencm3.** Clone the repository and build for STM32F1:
@@ -601,7 +596,7 @@ For those who prefer working without HAL, here is a minimal USB CDC implementati
 #include <string.h>
 
 static usbd_device *usbd_dev;
-static char serial_buf[64];
+static uint8_t serial_buf[128];
 
 /* USB descriptors (CDC ACM) */
 static const struct usb_device_descriptor dev_descr = {
@@ -647,7 +642,7 @@ int main(void) {
     /* Clock: 72 MHz from 8 MHz HSE */
     rcc_clock_setup_pll(&rcc_hse_configs[RCC_CLOCK_HSE8_72MHZ]);
 
-    /* Enable GPIOA, GPIOC, USB clocks */
+    /* Enable GPIOA and GPIOC clocks (usbd_init enables the USB clock) */
     rcc_periph_clock_enable(RCC_GPIOA);
     rcc_periph_clock_enable(RCC_GPIOC);
 
@@ -658,8 +653,9 @@ int main(void) {
 
     /* USB D+ (PA12) pull-up handled by hardware resistor R1 */
     usbd_dev = usbd_init(&st_usbfs_v1_usb_driver,
-                         &dev_descr, /* config, strings... */
-                         NULL, 0,
+                         &dev_descr,
+                         NULL,      /* config descriptor (omitted here) */
+                         NULL, 0,   /* strings, number of strings */
                          serial_buf, sizeof(serial_buf));
     usbd_register_set_config_callback(usbd_dev, cdcacm_set_config);
 
@@ -685,7 +681,7 @@ arm-none-eabi-gcc -mcpu=cortex-m3 -mthumb \
     -I libopencm3/include \
     -DSTM32F1 \
     -Os -Wall \
-    -T stm32f103c8t6.ld \
+    -T stm32f103c8t6.ld -nostartfiles \
     -L libopencm3/lib \
     -o firmware.elf main.c \
     -lopencm3_stm32f1 -lnosys
@@ -769,34 +765,17 @@ Hello from STM32
 
 <Card title="Lesson 3 Complete" icon="approve-check">
 
-**KiCad skills:**
-- Designed a board around an LQFP-48 MCU with 0.5mm pin pitch
-- Managed multi-pin decoupling strategy (one cap per VDD pin)
-- Routed USB differential pairs with length matching
-- Set design rules to match a specific fab house (JLCPCB)
+**In KiCad** you laid out a board around a 48-pin chip with 0.5mm pin pitch, placed one decoupling capacitor at each supply pin, routed the USB pair with equal lengths, and set design rules from a factory's limits.
 
-**Electronics skills:**
-- STM32 clock tree configuration (HSE, LSE, PLL)
-- USB full-speed circuit with D+ pull-up resistor
-- SWD debug interface wiring
-- Boot mode configuration with jumper selection
+**In electronics** you provided the STM32's clocks (HSE, LSE, PLL), a full-speed USB connection with its D+ pull-up, an SWD debug header and a boot jumper.
 
-**Manufacturing skills:**
-- Generated Gerber files with correct layer selection and settings
-- Generated Excellon drill files
-- Created BOM with LCSC part numbers for JLCPCB assembly
-- Created pick-and-place (CPL) file with correct column format
-- Walked through the full JLCPCB ordering process
-- Understood cost structure for small-batch PCB fabrication
+**In manufacturing** you made Gerber and drill files, a BOM with LCSC part numbers and a placement file, checked them, and ordered assembled boards.
 
-**Firmware skills:**
-- USB CDC (virtual serial port) on STM32F103
-- Flashing firmware via SWD using st-flash, STM32CubeProgrammer, or OpenOCD
-- Verified board functionality with a working USB communication test
+**In firmware** you wrote a program through SWD and proved the board with a USB serial port.
 </Card>
 
 :::tip[Next Lesson]
-In [Lesson 4: STM32 USB-C Four-Layer PCB](/education/pcb-design-kicad/stm32-usb-c-four-layer-pcb), you will redesign the development board with USB Type-C, a 4-layer stackup with dedicated power and ground planes, and improved signal integrity for higher-speed designs.
+In the [STM32 USB-C four-layer board](/education/pcb-design-kicad/stm32-usb-c-four-layer-pcb/) you design this board again with a USB Type-C connector and four copper layers, two of them whole planes for ground and power.
 :::
 
 <PcbDesignKicadComments />

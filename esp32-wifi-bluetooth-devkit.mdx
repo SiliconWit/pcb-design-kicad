@@ -25,32 +25,35 @@ import { Card, CardGrid, Badge, Steps, LinkButton, FileTree } from '@astrojs/sta
 
 import PcbDesignKicadComments from '../../../../components/pcb-design-kicad/PcbDesignKicadComments.astro';
 
-Place a ground pour trace under the ESP32's antenna and your WiFi range drops from 30 meters to 3. Route a high-speed signal through the antenna keepout zone and the module may fail to connect at all. Wireless PCB design has rules that do not exist for purely digital boards, and violating them produces failures that look like firmware bugs because the code is correct but the radio cannot hear the access point. In this lesson you will design an ESP32-WROOM-32 development board with a CP2102N USB-UART bridge and auto-reset circuit, then lay out a 2-layer PCB that respects the antenna keepout zone and maintains ground plane continuity for reliable wireless performance. #KiCad #ESP32 #RFDesign
+A board with copper under its antenna can lose most of its WiFi range: a link that should reach across a house reaches across one room. The program is correct, so people search the code for days, but the fault is in the copper. A wireless board has layout rules that a purely digital board does not have. In this lesson you design a development board around the ESP32-WROOM-32 radio module, add the circuit that lets a computer program it with one click, and lay out a 2-layer board that keeps the antenna clear and the ground copper unbroken. #KiCad #ESP32 #RFDesign
+
+The drawing shows the one rule that matters most. The antenna end of the module sits at the board edge, and nothing made of copper is allowed under it or beside it.
 
 ```text
-  Antenna Keepout Zone (top view)
-  ──────────────────────────────────────────
-  ┌──────────────────────────────────────┐
-  │                          ┌─────────┐ │
-  │  Components OK here      │ ESP32   │ │
-  │  (USB, LDO, caps, etc.) │ WROOM   │ │
-  │                          │         │ │
-  │                          │ ┌─────┐ │ │
-  │                          │ │Ante-│ │ │
-  │          NO copper,      │ │nna  │ │ │
-  │          NO traces,      │ └─────┘ │ │
-  │          NO components ──┼─►KEEPOUT│ │
-  │          in this zone    └─────────┘ │
-  │                          ◄── 15mm ──►│
-  └──────────────────────────────────────┘
-  Board edge must not obstruct antenna.
+  Top view of the board
+  ┌─────────────────────────────┬──────────┐
+  │ USB      regulator ┌────────┤ antenna  │
+  │ socket   USB chip  │ ESP32  │          │
+  │                    │ module │ KEEP-OUT ├──► radio
+  │ parts and ground   │ (metal │ no copper│    waves
+  │ copper allowed     │  can)  │ any layer│
+  │                    └────────┤          │
+  └─────────────────────────────┴──────────┘
+   solid ground under the can    board edge
 ```
 
 ## What We Are Building
 
 <Card title="ESP32 WiFi/Bluetooth Development Kit" icon="star">
-A DevKitC-style development board built around the ESP32-WROOM-32 module. The board features a CP2102N USB-UART bridge for programming and serial communication, an auto-reset circuit that puts the ESP32 into bootloader mode automatically, and dual 19-pin headers exposing all GPIO. Power comes from USB Micro-B through an AMS1117-3.3 LDO.
+A development board in the style of Espressif's DevKitC, built around the ESP32-WROOM-32 module. A CP2102N USB-UART bridge programs it and carries serial messages, an auto-reset circuit puts the ESP32 into bootloader mode without button presses, and two 19-pin headers bring out all GPIO. Power comes from USB Micro-B through an AMS1117-3.3 LDO.
 </Card>
+
+Four terms appear on every page of this lesson:
+
+- A USB-UART bridge is a chip that turns USB into the two-wire serial link (UART) through which the ESP32 is programmed.
+- The bootloader is a small program inside the ESP32 that receives new firmware over that serial link.
+- An LDO (low dropout regulator) makes a steady 3.3V from the 5V of the USB cable.
+- GPIO means a general purpose input or output pin.
 
 **Board specifications:**
 
@@ -77,22 +80,7 @@ A DevKitC-style development board built around the ESP32-WROOM-32 module. The bo
 | J2, J3 | 1x19 pin header | 2.54mm | 2 | GPIO breakout |
 | Q1, Q2 | S8050 (or 2N7002) | SOT-23 | 2 | Auto-reset transistors |
 
-```text
-  Auto-Reset Circuit
-  ──────────────────────────────────────────
-  CP2102N                  ESP32
-  ─────────                ─────
-  DTR ──► Q1 (NPN) ─────► GPIO0 (BOOT)
-          │
-  RTS ──► Q2 (NPN) ─────► EN (RESET)
-
-  Programming sequence:
-  1. DTR=LOW, RTS=HIGH → EN=LOW (reset)
-  2. DTR=HIGH, RTS=LOW → GPIO0=LOW (boot)
-  3. DTR=HIGH, RTS=HIGH → EN=HIGH (run)
-  ESP32 enters bootloader automatically.
-  No manual button presses needed.
-```
+The small parts around them:
 
 | Reference | Value | Package | Qty | Function |
 |-----------|-------|---------|-----|----------|
@@ -115,11 +103,13 @@ A DevKitC-style development board built around the ESP32-WROOM-32 module. The bo
 <InArticleAd />
 
 
-The ESP32-WROOM-32 is a module, not a bare chip. Inside the metal shielding can, Espressif has already placed the ESP32 SoC, a 40 MHz crystal, 4 MB SPI flash, and all the required passives. The PCB antenna is etched onto the module's own PCB and extends beyond the metal can at one end. This is the part you need to keep clear of copper on your board.
+The ESP32-WROOM-32 is a module: a small board of its own, soldered onto yours. Under its metal can, Espressif has placed the ESP32 chip, a 40 MHz crystal, 4 MB of flash memory and the small parts they need. The antenna is a copper pattern on the module's own board, and it extends beyond the metal can at one end. That end is the part you must keep clear of copper on your board.
 
-Using a module instead of the bare ESP32 SoC saves you significant design effort. The RF matching network between the SoC and the antenna is already tuned and tested. The module carries FCC, CE, and other wireless certifications, which means your product can reference the module's certification rather than going through the full (and expensive) RF certification process from scratch.
+A module saves the hardest work of a radio design: the circuit that matches the chip to the antenna is already tuned, and the module has passed the radio approval tests (FCC, CE and others).
 
 ### Key Pins
+
+EN is the reset pin: when it is low the chip is held in reset, and when it rises the chip starts.
 
 | Pin | Function | Notes |
 |-----|----------|-------|
@@ -133,29 +123,28 @@ Using a module instead of the bare ESP32 SoC saves you significant design effort
 
 ### Strapping Pins
 
-The ESP32 samples several GPIO pins at reset to determine boot mode and other configuration. The critical ones for this board:
+A strapping pin is a pin the chip reads once, at the moment it leaves reset, to decide how to start. After that moment it is an ordinary pin. The two that matter on this board:
 
 | Pin | Boot from Flash | Boot to Bootloader |
 |-----|----------------|-------------------|
 | GPIO0 | HIGH (default pull-up) | LOW (held by BOOT button or auto-reset) |
 | GPIO2 | LOW or floating | LOW or floating |
 
-Do not connect heavy loads to GPIO0, GPIO2, GPIO5, GPIO12, or GPIO15 without understanding their strapping behavior. The ESP32 datasheet and the WROOM-32 module datasheet both document these requirements.
+GPIO5, GPIO12 and GPIO15 are strapping pins too. A load that pulls one of the five to the wrong level at reset stops the chip from starting, so read the module datasheet before you connect anything heavy to them.
 
 ## RF-Aware Design Principles
 
 <InArticleAd />
 
 
-This is what separates an ESP32 board that works reliably from one that drops WiFi connections or has poor range. The layout around the antenna area directly affects wireless performance.
+RF means radio frequency. An antenna is cut to a size that responds to one frequency, as a guitar string is tuned to one note. WiFi and Bluetooth use 2.4 GHz. Copper close to the antenna acts as a finger resting on the string: the note moves away. The radio then sends less power and hears less, and the range falls. The comparison stops there: a detuned antenna gives no sign you can hear or see, only a weak link.
 
-**Antenna keepout zone.** The WROOM-32 module has a PCB antenna that extends beyond the edge of the metal shielding can. No copper of any kind (no traces, no ground pour, no component pads) should exist underneath or within 2mm around the antenna section of the module. This means no copper on any layer in that region. Copper near the antenna detunes it, shifting its resonant frequency away from the 2.4 GHz band and reducing both transmit power and receive sensitivity.
+Four rules follow from this.
 
-**Ground plane continuity.** While you must keep copper away from the antenna, you need a solid, unbroken ground plane under the rest of the module body (the shielded section). The ESP32's ground pins connect to this plane, and the RF return currents flow through it. Splits or gaps in the ground plane under the module degrade performance just as much as copper under the antenna.
-
-**Decoupling near power pins.** Place 100 nF capacitors as close as possible to the module's VDD pins. The ESP32 draws current in sharp bursts during WiFi transmission (peaks over 300 mA), and poor decoupling causes voltage droops that can crash the module or corrupt transmitted packets.
-
-**Keep digital signals away from the antenna.** Route all traces on the opposite side of the module from the antenna. High-speed switching signals (SPI clock, I2C, PWM) radiate noise that can interfere with the 2.4 GHz band if they run near the antenna area.
+1. Keep an antenna keep-out zone. No copper of any kind (no traces, no ground pour, no pads) may lie under the antenna section of the module or within 2mm of it, on any layer.
+2. Keep the ground unbroken under the metal can. The radio's return currents flow through the ground copper under the module body. A slot or gap there harms the range as much as copper under the antenna.
+3. Put 100 nF decoupling capacitors beside the module's VDD pins. The ESP32 takes current in sudden bursts when it transmits (peaks over 300 mA). A capacitor at the pin supplies the burst. Without it the voltage dips, and the module can reset or send damaged packets.
+4. Keep digital signals away from the antenna end. Fast switching signals (an SPI clock, I2C, PWM) radiate noise that the radio receives as interference.
 
 ### Antenna Keepout Summary
 
@@ -175,16 +164,18 @@ Create a new KiCad project named `esp32-devkit`. Open the schematic editor and b
 
 <LinkButton href="https://github.com/SiliconWit/pcb-design-kicad/blob/main/schematics/esp32-wifi-bluetooth-devkit.pdf" target="_blank" variant="secondary" icon="document">Download Schematic PDF</LinkButton>
 
+The PDF is an earlier drawing of this board and differs from the text: its part numbers are different (the transistor on EN is Q1 there), the LED is on GPIO18, the headers have 17 pins, and it has no polyfuse. Where the two differ, follow the text.
+
 ### Power Supply
 
 <Steps>
 1. Place the USB Micro-B connector. Add `USB_B_Micro` from the Connector library. This provides VBUS (5V), D+, D-, ID, and GND.
 
-2. Add VBUS protection. Connect VBUS through polyfuse F1 (500 mA) to a net labeled `VBUS_5V`. Place a 4.7 µF decoupling capacitor (C7) from VBUS_5V to GND near the connector.
+2. Add VBUS protection. Connect VBUS through polyfuse F1 (500 mA) to a net labeled `VBUS_5V`. A polyfuse opens when too much current flows and closes again when it cools, so a short circuit on your board cannot harm the computer's USB port. 500 mA is what a standard USB port supplies. Place a 4.7 µF capacitor (C7) from VBUS_5V to GND near the connector.
 
-3. Place the AMS1117-3.3 LDO (SOT-223). Connect VBUS_5V to the input pin through a 10 µF capacitor (C1). Connect the output to a `+3V3` power net through a 10 µF capacitor (C2). The AMS1117 also needs the input cap for stability.
+3. Place the AMS1117-3.3 LDO (SOT-223). Connect VBUS_5V to the input pin, with a 10 µF capacitor (C1) from the input to GND. Connect the output to a `+3V3` power net, with a 10 µF capacitor (C2) from the output to GND. The AMS1117 needs both capacitors to stay stable: without them its output can oscillate.
 
-4. Add power flags. Place `PWR_FLAG` symbols on +3V3 and GND if ERC reports undriven power nets.
+4. Add power flags. Place `PWR_FLAG` symbols on +3V3 and GND if ERC (the electrical rules check) reports undriven power nets.
 </Steps>
 
 ### ESP32-WROOM-32 Module
@@ -194,15 +185,15 @@ Create a new KiCad project named `esp32-devkit`. Open the schematic editor and b
 
 2. Connect all power pins. Wire every VDD pin to `+3V3` and every GND pin (including the large ground pad) to `GND`. The WROOM-32 has multiple ground pins; all must be connected for proper RF return currents.
 
-3. EN pin circuit. Connect EN to +3V3 through a 10 kΩ pull-up resistor (R1). Place a 100 nF capacitor (C6) from EN to GND. This RC filter prevents noise from accidentally resetting the module. The EN pin also connects to the auto-reset circuit and the EN pushbutton (SW1).
+3. EN pin circuit. Connect EN to +3V3 through a 10 kΩ pull-up resistor (R1). Place a 100 nF capacitor (C6) from EN to GND. The pair is a filter: a short noise pulse cannot reset the module. It also delays the rise of EN by about 1 ms, which the auto-reset circuit needs. The EN pin also connects to the auto-reset circuit and the EN pushbutton (SW1).
 
-4. GPIO0 strapping. Connect GPIO0 to +3V3 through a 10 kΩ pull-up resistor (R2). This ensures normal boot from flash. GPIO0 also connects to the auto-reset circuit and the BOOT pushbutton (SW2).
+4. GPIO0 strapping. Connect GPIO0 to +3V3 through a 10 kΩ pull-up resistor (R2). The pull-up holds GPIO0 high at reset, so the chip starts your program from flash. GPIO0 also connects to the auto-reset circuit and the BOOT pushbutton (SW2).
 
-5. UART0 connections. Connect TXD0 (GPIO1) to the CP2102N RXD pin. Connect RXD0 (GPIO3) to the CP2102N TXD pin. Note the crossover: the ESP32 TX goes to the bridge RX, and vice versa.
+5. UART0 connections. Connect TXD0 (GPIO1) to the CP2102N RXD pin. Connect RXD0 (GPIO3) to the CP2102N TXD pin. The lines cross: what one chip transmits (TX), the other receives (RX).
 
-6. Decoupling capacitors. Place 100 nF caps (C3, C4) on the VDD pins, as close to the module as possible in the schematic. Physical placement matters more, but schematic proximity helps during layout.
+6. Decoupling capacitors. Place 100 nF caps (C3, C4) on the VDD pins. Draw them beside the module in the schematic, so that you remember to place them beside it on the board.
 
-7. User LED. Connect GPIO2 through a 330 ohm resistor (R5) to the anode of D1 (blue LED), cathode to GND. GPIO2 is safe to use as a user LED after boot completes.
+7. User LED. Connect GPIO2 through a 330 ohm resistor (R5) to the anode of D1 (blue LED), cathode to GND. The resistor limits the LED current to a few milliamperes. An LED to GND also holds GPIO2 low at reset, which this strapping pin requires.
 
 8. GPIO headers. Place two 1x19 pin headers (J2, J3) and route all remaining GPIO pins to them. Follow the ESP32-DevKitC pinout order if you want compatibility with existing tutorials and shields.
 </Steps>
@@ -210,35 +201,56 @@ Create a new KiCad project named `esp32-devkit`. Open the schematic editor and b
 ### CP2102N USB-UART Bridge
 
 <Steps>
-1. **Place the CP2102N.** Add `CP2102N-A02-GQFN28` from the Interface_USB library (or create a custom symbol if not available). The CP2102N has an internal oscillator, so you do not need an external 12 MHz crystal. This simplifies the design compared to the older CP2102.
+1. **Place the CP2102N.** Add `CP2102N-Axx-xQFN28` from the Interface_USB library (this symbol covers the CP2102N-A02-GQFN28). The CP2102N makes its own clock, so it needs no crystal.
 
-2. **USB data lines.** Connect the USB Micro-B D+ and D- pins to the CP2102N's D+ and D- pins. The CP2102N handles all USB protocol internally.
+2. **USB data lines.** Connect the USB Micro-B D+ and D- pins to the CP2102N's D+ and D- pins.
 
 3. **Power connections.** Connect the CP2102N VDD pin to +3V3 and VBUS to the VBUS pin (if available on the package) or to +3V3 through the regulator. Add a 100 nF decoupling capacitor (C5) from VDD to GND.
 
 4. **UART pins.** Connect CP2102N TXD to ESP32 RXD0 (GPIO3). Connect CP2102N RXD to ESP32 TXD0 (GPIO1).
 
-5. **Control signals.** Bring out the RTS and DTR pins. These connect to the auto-reset circuit described next. The CP2102N asserts these signals when the programming tool (esptool or Arduino IDE) requests a reset into bootloader mode.
+5. **Control signals.** Bring out the RTS and DTR pins. These are two spare outputs of the serial port that the programming tool (esptool, or the Arduino IDE) can switch from the computer. They feed the auto-reset circuit.
 </Steps>
 
 ### Auto-Reset Circuit
 
-This is the circuit that makes one-click programming possible. Without it, you would need to hold the BOOT button, press EN, release BOOT, and then click upload every time you flash new firmware.
+To load new firmware by hand you must hold the BOOT button, press and release EN, release BOOT, and then click Upload, every time. The auto-reset circuit presses the two buttons for you: the programming tool switches DTR and RTS, and two NPN transistors turn those into the right order of events on EN and GPIO0.
 
-The auto-reset circuit uses two NPN transistors (or N-channel MOSFETs) to translate the CP2102N's DTR and RTS signals into the correct sequence on EN and GPIO0. When the programming tool begins an upload, it asserts DTR low and pulses RTS. The transistor cross-coupling converts this into: first pull GPIO0 low (enter bootloader mode), then pulse EN low (reset the chip). The ESP32 resets, samples GPIO0 low, and enters the bootloader. The programming tool then uploads the firmware over UART.
+An NPN transistor here is a switch. It connects its collector to its emitter only when its base is higher than its emitter. Each transistor has its base on one control line and its emitter on the other:
+
+```text
+  DTR ──[R4 10k]──► base    ┐
+                            ├─ Q2 ─ collector ──► EN
+  RTS ────────────► emitter ┘
+
+  RTS ──[R3 10k]──► base    ┐
+                            ├─ Q1 ─ collector ──► GPIO0
+  DTR ────────────► emitter ┘
+```
+
+So a transistor conducts only when the two lines differ. The table gives the voltage at the CP2102N pins. Both lines rest high, and "asserted" in the tool means the pin is at 0 V.
+
+| DTR pin | RTS pin | Q1 | Q2 | Result |
+|---------|---------|----|----|--------|
+| High | High | Off | Off | The board runs (the resting state) |
+| High | Low | Off | On | EN is low: the chip is held in reset |
+| Low | High | On | Off | GPIO0 is low: the bootloader is selected |
+| Low | Low | Off | Off | The board runs |
+
+An upload uses rows two, three and one, in that order. The tool pulls RTS low, and the chip is in reset. Then it releases RTS and pulls DTR low: EN rises, the chip starts, reads GPIO0 low and enters the bootloader. Then it releases DTR, and the firmware goes over the UART.
+
+No emitter goes to GND. With grounded emitters, the two lines resting high would switch both transistors on and hold the chip in reset for ever.
 
 <Steps>
-1. **Transistor Q1 (controls EN).** Connect the collector to the EN net. Connect the emitter to GND. Connect the base through a 10 kΩ resistor (R3) to the RTS signal from CP2102N.
+1. **Transistor Q1 (controls GPIO0).** Connect the collector to the GPIO0 net. Connect the emitter to the DTR signal from the CP2102N. Connect the base through a 10 kΩ resistor (R3) to the RTS signal.
 
-2. **Transistor Q2 (controls GPIO0).** Connect the collector to the GPIO0 net. Connect the emitter to GND. Connect the base through a 10 kΩ resistor (R4) to the DTR signal from CP2102N.
+2. **Transistor Q2 (controls EN).** Connect the collector to the EN net. Connect the emitter to the RTS signal from the CP2102N. Connect the base through a 10 kΩ resistor (R4) to the DTR signal. The 10 kΩ resistors limit the base current to a fraction of a milliampere, which is enough to switch the transistor.
 
-3. **Cross-coupling.** Add a 100 nF capacitor from DTR to the EN net (in parallel with Q1's path). Add a 100 nF capacitor from RTS to the GPIO0 net (in parallel with Q2's path). This capacitor coupling ensures the correct timing sequence. The exact topology follows the ESP32-DevKitC reference design published by Espressif.
-
-4. **Manual buttons.** Wire SW1 (EN button) between the EN net and GND. Wire SW2 (BOOT button) between GPIO0 and GND. These allow manual reset and bootloader entry when no USB is connected.
+3. **Manual buttons.** Wire SW1 (EN button) between the EN net and GND. Wire SW2 (BOOT button) between GPIO0 and GND. These allow manual reset and bootloader entry, for example if the auto-reset circuit has a fault.
 </Steps>
 
 :::note
-The auto-reset circuit topology varies slightly between different ESP32 board designs. The version described here follows Espressif's DevKitC reference schematic. If you use N-channel MOSFETs (like 2N7002) instead of NPN transistors, connect the gate to the control signal through the resistor, drain to EN or GPIO0, and source to GND.
+This is the circuit of Espressif's own ESP32-DevKitC. If you use N-channel MOSFETs (like 2N7002) in place of the NPN transistors, connect the gate where the base would go, the drain to EN or GPIO0, and the source to the other control line (where the emitter would go).
 :::
 
 ### ERC and Footprint Assignment
@@ -253,7 +265,7 @@ The auto-reset circuit topology varies slightly between different ESP32 board de
    - USB Micro-B: Select a footprint matching your connector (e.g., `Connector_USB:USB_Micro-B_Molex_47346-0001`)
    - 0402 passives: `Capacitor_SMD:C_0402_1005Metric` and `Resistor_SMD:R_0402_1005Metric`
    - 0805 bulk caps: `Capacitor_SMD:C_0805_2012Metric`
-   - Tactile switches: `Button_Switch_SMD:SW_Push_1P1T_NO_6x3.5mm`
+   - Tactile switches: `Button_Switch_SMD:SW_SPST_PTS810`
 
 3. **Generate the netlist.** Click Tools > Update PCB from Schematic (or press F8) to transfer the schematic to the PCB editor.
 </Steps>
@@ -268,69 +280,64 @@ The auto-reset circuit topology varies slightly between different ESP32 board de
 <Steps>
 1. **Draw the board outline.** Switch to the Edge.Cuts layer and draw a rectangle approximately 55mm x 28mm. The ESP32 module is 18mm wide, so 28mm gives adequate clearance on both sides for pin headers.
 
-2. **Place the ESP32 module at one short edge.** Position the module so the antenna section extends to (or slightly beyond) the board edge. The antenna must point outward with no board material or components blocking it. Align the module center with the board center horizontally.
+2. **Place the ESP32 module at one short edge.** Position the module so the antenna section extends to (or slightly beyond) the board edge. The antenna must point outward with no board material or components in front of it. Centre the module across the width of the board.
 
-3. **Place the USB connector at the opposite short edge.** This maximizes the distance between the USB connector (a source of digital noise) and the antenna. The USB connector's metal shell should align flush with the board edge.
+3. **Place the USB connector at the opposite short edge.** The USB connector and its cable carry digital noise, so they go as far from the antenna as the board allows. Set the connector's metal shell flush with the board edge.
 
 4. **Place the LDO between USB and ESP32.** Position the AMS1117-3.3 and its capacitors along the power path from USB to the module. Keep the power traces short and direct.
 
-5. **Place the CP2102N near the USB connector.** The USB data lines should be as short as possible between the connector and the UART bridge. Place C5 (decoupling) adjacent to the CP2102N VDD pin.
+5. **Place the CP2102N near the USB connector.** Short USB data lines pick up less noise. Place C5 (decoupling) beside the CP2102N VDD pin.
 </Steps>
 
 ### Antenna Keepout Zone in KiCad
 
+A keep-out drawn as a Rule Area makes KiCad refuse copper there, so you do not depend on your eyes.
+
 <Steps>
-1. **Identify the antenna area.** The ESP32-WROOM-32 footprint in KiCad includes a courtyard that marks the antenna region. The antenna extends approximately 5mm beyond the metal shielding can at the top of the module.
+1. **Identify the antenna area.** The ESP32-WROOM-32 footprint in KiCad includes a courtyard (the outline of the space a part needs) that marks the antenna region. The antenna extends approximately 5mm beyond the metal shielding can at the top of the module.
 
-2. **Draw a Rule Area.** Select Add Rule Area (also called Keep Out Zone) from the right toolbar. In the properties dialog, check "Keep out copper pour" for all copper layers (F.Cu, B.Cu). Draw a rectangle covering the entire antenna area plus 2mm margin on all sides.
+2. **Draw a Rule Area.** Select Add Rule Area (also called Keep Out Zone) from the right toolbar. In the properties dialog, check "Keep out copper pour" for all copper layers (F.Cu, the front, and B.Cu, the back). Draw a rectangle covering the entire antenna area plus 2mm margin on all sides.
 
-3. **Verify no copper exists in the keepout.** After filling zones (press B), visually inspect the antenna area. There should be no ground pour, no traces, and no vias within the keepout rectangle on any copper layer.
+3. **Verify no copper exists in the keepout.** After filling zones (press B), look at the antenna area. There should be no ground pour, no traces, and no vias within the keepout rectangle on any copper layer.
 
-4. **Board edge alignment.** If the antenna extends beyond the board edge, the Edge.Cuts outline should follow the module edge at the antenna end. Some designers extend the board slightly beyond the antenna for mechanical protection, but leave the extended area completely free of copper.
+4. **Board edge alignment.** If the antenna extends beyond the board edge, the Edge.Cuts outline should follow the module edge at the antenna end. Some designers extend the board a little beyond the antenna to protect it, and leave that part free of copper.
 </Steps>
 
 ### Ground Pour and Plane Strategy
 
-This is a 2-layer board, so you do not have dedicated inner planes. Instead, use copper pours on both F.Cu and B.Cu assigned to GND. The key rule: the ground pour must be solid and unbroken under the shielded body of the ESP32 module, but completely absent under the antenna area.
+A ground pour is copper that fills all the free space of a layer and is connected to GND. A 2-layer board has no inner layer to give to ground, so you pour ground on both F.Cu and B.Cu. The pour must be solid and unbroken under the metal can of the module, and absent under the antenna.
 
-On F.Cu, the ground pour fills around the component pads and traces. On B.Cu, the pour should be as continuous as possible, especially under the ESP32 module. Connect the front and back ground pours with via stitching every 3 to 5mm. This creates a pseudo-ground-plane that improves RF performance on a 2-layer board.
+On F.Cu the pour fills around the pads and traces. On B.Cu, keep it as continuous as you can, most of all under the module. Join the two pours with vias (plated holes) every 3 to 5mm. This spacing is small against the wavelength of a 2.4 GHz signal in the board, about 60mm, so to the radio the two layers act as one sheet of ground.
 
 <Steps>
-1. **Create GND zone on F.Cu.** Add a filled zone covering the entire board, assigned to the GND net. Set zone priority to 0.
+1. **Create the GND zones.** Add a filled zone covering the entire board on F.Cu, assigned to the GND net, with priority 0. Do the same on B.Cu.
 
-2. **Create GND zone on B.Cu.** Same process on B.Cu, also assigned to GND with priority 0.
+2. **Add the vias.** Place GND vias every 3 to 5mm across the board (not in the antenna keepout zone), with more around the module's ground pad and along the board edges.
 
-3. **Add via stitching.** Place GND vias every 3 to 5mm across the board area (except in the antenna keepout zone). Concentrate stitching vias around the ESP32 module's ground pad area and along the board edges.
-
-4. **Verify ground continuity.** After filling zones, use the net inspector to confirm that all GND pads are connected to the same net. Look for isolated ground islands caused by trace routing that could split the pour.
+3. **Verify ground continuity.** After filling zones, use the net inspector to confirm that all GND pads are on one net. Look for islands of ground that a trace has cut off from the pour.
 </Steps>
 
-### Component Placement Summary
+### Placing the Remaining Parts
 
-| Priority | Component | Placement Rule |
-|----------|-----------|---------------|
-| 1 | ESP32-WROOM-32 | Board edge, antenna pointing outward |
-| 2 | USB Micro-B | Opposite board edge from antenna |
-| 3 | CP2102N | Near USB connector, short D+/D- traces |
-| 4 | AMS1117-3.3 + caps | Between USB and ESP32, short power path |
-| 5 | Auto-reset transistors | Near CP2102N and ESP32 EN/GPIO0 pins |
-| 6 | Decoupling caps (C3, C4) | Adjacent to ESP32 VDD pins, back side OK |
-| 7 | Buttons (EN, BOOT) | Board edge for easy access |
-| 8 | GPIO headers | Both long edges of the board |
+| Component | Placement Rule |
+|-----------|---------------|
+| Auto-reset transistors | Between the CP2102N and the ESP32 EN/GPIO0 pins |
+| Decoupling caps (C3, C4) | Beside the ESP32 VDD pins, back side OK |
+| Buttons (EN, BOOT) | Board edge, where a finger can reach |
+| GPIO headers | Both long edges of the board |
 
 ### Trace Routing Tips
 
-Route the USB D+ and D- traces first, keeping them short and parallel between the Micro-B connector and the CP2102N. These are USB 2.0 Full-Speed (12 Mbps) signals, so keep them under 50mm total length and avoid sharp 90-degree bends.
+Route in this order:
 
-Route the UART lines (TXD, RXD) between the CP2102N and the ESP32 module next. These run at up to 921600 baud during programming, which is slow enough that trace impedance is not critical. Keep them away from the antenna area.
-
-Route power traces (VBUS to LDO input, LDO output to 3V3 net) with wider traces (0.5mm or more) to handle the ESP32's peak current draw during WiFi transmission (up to 500 mA from the 3.3V rail).
-
-Route all remaining GPIO connections to the pin headers last. Keep traces away from the antenna end of the board.
+1. The USB D+ and D- traces, short and side by side between the Micro-B connector and the CP2102N. These are USB 2.0 Full-Speed (12 Mbps) signals: keep them under 50mm and avoid sharp 90-degree bends.
+2. The UART lines (TXD, RXD) between the CP2102N and the ESP32 module. At up to 921600 baud they are slow, so their exact width does not matter. Keep them away from the antenna area.
+3. The power traces (VBUS to LDO input, LDO output to the 3V3 net), 0.5mm wide or more. The ESP32 can take up to 500 mA from the 3.3V rail when it transmits, and a narrow trace loses voltage and warms.
+4. The remaining GPIO connections to the pin headers, away from the antenna end of the board.
 
 ### Design Rules for JLCPCB 2-Layer
 
-Set these minimum design rules in Board Setup > Design Rules > Constraints:
+A design rule is a limit the factory can make reliably. KiCad checks your board against the limits you enter. The minimum column is what JLCPCB can make, and the recommended column leaves a margin. Set them in Board Setup > Design Rules > Constraints:
 
 | Parameter | Minimum | Recommended |
 |-----------|---------|-------------|
@@ -342,6 +349,8 @@ Set these minimum design rules in Board Setup > Design Rules > Constraints:
 
 ### Running DRC
 
+DRC is the design rules check: KiCad compares the board with the limits above.
+
 <Steps>
 1. Fill all zones (Edit > Fill All Zones, or press B).
 
@@ -349,7 +358,7 @@ Set these minimum design rules in Board Setup > Design Rules > Constraints:
 
 3. Fix any clearance violations, unconnected nets, or minimum width violations.
 
-4. Pay special attention to the antenna keepout zone. Verify that DRC does not report any copper inside the keepout area.
+4. Look closely at the antenna keepout zone. DRC must report no copper inside it.
 </Steps>
 
 ## Manufacturing
@@ -357,18 +366,16 @@ Set these minimum design rules in Board Setup > Design Rules > Constraints:
 <InArticleAd />
 
 
-The Gerber and drill file export process is the same as Lesson 3. Generate Gerbers for F.Cu, B.Cu, F.Mask, B.Mask, F.SilkS, B.SilkS, and Edge.Cuts, plus the drill file. Zip everything and upload to JLCPCB.
+A factory works from Gerber files (one drawing for each layer) and a drill file. Generate Gerbers for F.Cu, B.Cu, F.Mask, B.Mask, F.SilkS, B.SilkS, and Edge.Cuts, plus the drill file. Zip everything and upload to JLCPCB. The export steps, the ordering process and the BOM and pick-and-place files are the same as for the [STM32 USB development board](/education/pcb-design-kicad/stm32-usb-development-board/).
 
-For a 2-layer board this size (55x28mm), expect to pay $2 to $5 for 5 boards at JLCPCB. Select 1.6mm board thickness and HASL surface finish. If you plan to hand-solder the QFN-28 CP2102N, consider ENIG finish for flatter pads, though HASL works fine with careful technique. The ESP32 module itself is castellated (half-vias on the edges) and can be soldered with a standard iron by applying flux and tacking each pad.
-
-For a full walkthrough of the JLCPCB ordering process including BOM and pick-and-place file generation, refer back to [Lesson 3](/education/pcb-design-kicad/stm32-usb-development-board).
+For a 2-layer board this size (55x28mm), expect to pay 2 to 5 USD for 5 boards at JLCPCB. Select 1.6mm board thickness and HASL surface finish. If you plan to hand-solder the QFN-28 CP2102N, the ENIG finish gives flatter pads, but HASL works with care. The ESP32 module has castellated pads (half holes on its edges), so a standard iron can solder it: apply flux and solder each pad in turn.
 
 ## Firmware: WiFi Scan
 
 <InArticleAd />
 
 
-Once the board is assembled, verify that the ESP32 boots correctly and WiFi works by running a network scan. We use the Arduino framework for simplicity, since it handles all the ESP-IDF configuration behind the scenes.
+When the board is assembled, a network scan shows that the ESP32 starts and that the radio works. The sketch uses the Arduino framework, which hides the setup of Espressif's own software kit.
 
 ### Arduino IDE Setup
 
@@ -449,7 +456,7 @@ void loop() {
 
 ### Expected Output
 
-Open the Serial Monitor at 115200 baud after uploading. You should see output similar to this:
+Open the Serial Monitor at 115200 baud after uploading. RSSI is the received signal strength in dBm: a value nearer to zero is stronger, so -42 is a strong signal and -78 a weak one. You should see output similar to this:
 
 ```
 ESP32 WiFi Scanner
@@ -462,7 +469,7 @@ Scanning for networks...
   # | SSID                             | RSSI | Ch | Encryption
 ----+----------------------------------+------+----+-----------
   1 | HomeNetwork                      |  -42 |  6 | WPA2
-  2 | Office_5G                        |  -55 | 36 | WPA2
+  2 | Office_2G                        |  -55 | 11 | WPA2
   3 | CoffeeShop                       |  -68 |  1 | WPA/WPA2
   4 | IoT_Sensors                      |  -71 | 11 | WPA2
   5 | Guest_Network                    |  -78 |  6 | Open
@@ -474,43 +481,40 @@ Next scan in 10 seconds...
 
 If the board does not respond after clicking Upload:
 
-- **Check the auto-reset circuit.** Hold the BOOT button, press and release EN, then release BOOT. Click Upload again. If this works but auto-reset does not, inspect the transistor wiring and the DTR/RTS connections from the CP2102N.
-- **Verify 3.3V power.** Measure the voltage on the ESP32 VDD pins. It should be 3.3V plus or minus 0.1V. Low voltage (below 3.0V) indicates an LDO or capacitor problem.
-- **Check serial port.** If no serial port appears when you plug in the board, the CP2102N may not be soldered properly. Check for solder bridges on the QFN pads, especially between adjacent pins.
-- **WiFi scan returns zero networks.** Check the antenna keepout zone on your PCB. Copper under the antenna is the most common cause of poor WiFi performance on custom ESP32 boards. Also verify that no metal enclosure or your hand is covering the antenna during testing.
+- Check the auto-reset circuit. Hold the BOOT button, press and release EN, then release BOOT. Click Upload again. If this works but auto-reset does not, inspect the transistor wiring and the DTR/RTS connections from the CP2102N.
+- Measure the 3.3V supply on the ESP32 VDD pins. It should be 3.3V plus or minus 0.1V. Below 3.0V, suspect the LDO or its capacitors.
+- If no serial port appears when you plug in the board, look for solder bridges between the pins of the CP2102N.
+- If the scan finds no networks, check the antenna keepout zone. Copper under the antenna is the most common cause of poor WiFi on custom ESP32 boards. Check also that no metal box and no hand covers the antenna.
 
 ## What You Have Learned
 
 <InArticleAd />
 
 
-<Card title="Lesson 5 Complete" icon="approve-check">
+<Card title="ESP32 DevKit Complete" icon="approve-check">
 
 **KiCad skills:**
-- Designed an RF-aware PCB layout with antenna keepout zones using Rule Areas
-- Managed ground pour continuity on a 2-layer board for wireless module performance
-- Placed components to maximize antenna clearance and minimize noise coupling
-- Applied via stitching for ground plane integrity on a 2-layer wireless board
+- Drew an antenna keepout zone as a Rule Area
+- Kept the ground pour unbroken under the module on a 2-layer board, and joined the two layers with vias
+- Placed the parts so the antenna is clear and noise sources are far from it
 
 **Electronics skills:**
-- ESP32-WROOM-32 module integration (power, strapping pins, UART)
-- CP2102N USB-UART bridge design without external crystal
-- Auto-reset circuit using transistors for one-click bootloader entry
-- RF layout principles: antenna keepout, ground continuity, decoupling for burst current
+- Connected an ESP32-WROOM-32 module (power, strapping pins, UART)
+- Added a CP2102N USB-UART bridge without a crystal
+- Built the cross-coupled auto-reset circuit for one-click programming
 
 **Manufacturing skills:**
-- 2-layer Gerber export for wireless boards with keepout zones
-- Soldering castellated module pads and QFN packages
+- Exported Gerber files for a 2-layer wireless board
+- Soldered castellated module pads and a QFN package
 
 **Firmware skills:**
-- Arduino framework setup for ESP32
-- WiFi scanning with network enumeration over serial
-- Serial communication through USB-UART bridge with auto-reset
+- Set up the Arduino framework for the ESP32
+- Scanned for WiFi networks and read the result over the USB-UART bridge
 
 </Card>
 
 :::tip[Next Lesson]
-In [Lesson 6: ESP32 Battery-Powered IoT Sensor Node](/education/pcb-design-kicad/esp32-battery-iot-sensor-node), you will add battery management, low-power design techniques, and sensor integration to create a standalone IoT device. You will learn about LiPo charging circuits, deep sleep current optimization, and designing for long battery life.
+In the [ESP32 battery-powered IoT sensor node](/education/pcb-design-kicad/esp32-battery-iot-sensor-node/), you add a lithium cell, a charger and a sensor to make a device that runs by itself. You learn how a cell is charged and protected, and how to design a board for a long battery life.
 :::
 
 <PcbDesignKicadComments />
