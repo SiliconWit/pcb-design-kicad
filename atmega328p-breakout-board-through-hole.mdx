@@ -27,7 +27,7 @@ import PcbDesignKicadComments from '../../../../components/pcb-design-kicad/PcbD
 
 A circuit on a breadboard works on the desk and fails when you move it: a jumper wire falls out, a loose contact adds noise, and nobody can build the same circuit twice. A printed circuit board (PCB) fixes the wiring in copper, so the circuit can be carried, copied and given to another person. In this lesson you design your first board in KiCad 9, from an empty project to a board that blinks a light. The board carries an ATmega328P (the chip of the Arduino Uno) with its power supply, clock, reset button and programming connectors. Every part has wire legs that pass through holes in the board (through-hole parts), the easiest kind to solder. The lesson is long, so each main section ends at a point where you can save your work and stop. #KiCad #ATmega328P #PCBDesign
 
-A board design is two drawings of one circuit. The **schematic** shows which pin connects to which pin, with no regard for size or position. The **layout** shows where each part sits and where each copper track runs. You draw the schematic first because a wiring mistake costs a minute to correct there and a new board to correct in copper. KiCad carries the connections from the first drawing to the second, checks both, and writes the files a factory needs.
+A board design is two drawings of one circuit. The **schematic** shows which pin connects to which pin, with no regard for size or position. The **layout** shows where each part sits and where each copper track runs. Draw the schematic first: a wiring mistake costs a minute to correct there and a new board in copper. KiCad carries the connections from the first drawing to the second, checks both, and writes the files a factory needs.
 
 ```text
  1 Schematic    2 Layout       3 Checks       4 Files
@@ -289,7 +289,7 @@ ERC cannot see the wall adapter, so it may report that nothing drives `VIN`. Add
 The microcontroller (MCU) needs three small circuits around it to run correctly:
 
 - **A crystal with two load capacitors.** The crystal is the clock: it sets the speed at which the chip executes instructions, 16 million steps a second here. The two 22 pF capacitors are the load the crystal maker specifies. Without them the frequency is wrong or the clock does not start.
-- **A decoupling capacitor at each supply pin.** A digital chip takes its current in short, sharp pulses. A track is too slow to deliver such a pulse from a regulator several centimetres away, so the voltage at the pin dips and the chip can reset or misread. A 100nF capacitor beside the pin is a small local store of charge that supplies the pulse.
+- **A decoupling capacitor at each supply pin.** A digital chip takes its current in short, sharp pulses, and a track from a regulator several centimetres away is too slow to deliver them: the pin voltage dips and the chip can reset or misread. A 100nF capacitor beside the pin is a small local store of charge, like a small tank beside a tap, that supplies each pulse.
 - **A capacitor on AREF**, the reference voltage of the analog-to-digital converter, which keeps noise out of analog readings.
 
 ```text
@@ -540,7 +540,7 @@ Click **Apply, Save Schematic & Continue**, then close the dialog. The schematic
 <InArticleAd />
 
 
-The schematic says what connects to what. The layout decides where each part sits and where each copper track runs, and those choices decide whether the circuit works well. A decoupling capacitor on the far side of the board is connected correctly and does almost nothing.
+The schematic says what connects to what. The layout decides where parts and tracks go, and so whether the circuit works well. A decoupling capacitor on the far side of the board is connected correctly and does almost nothing.
 
 A two-layer board has copper on its top face (KiCad calls it `F.Cu`, front copper) and on its bottom face (`B.Cu`). The parts sit on top, and their legs pass through holes and are soldered.
 
@@ -617,7 +617,7 @@ Placement decides how easy the routing is and how well the board works. Place ev
 
 ### Design Rules
 
-A design rule is a limit that you give to KiCad: the narrowest track, the smallest gap between two pieces of copper, the smallest hole. Every way of making a board has such limits. Below them, tracks break or touch each other. KiCad gives each new track its width from the rules and reports anything that breaks them, so set the rules before you route. The values below are wide enough for home etching and milling, the roughest of the three ways this board can be made.
+A design rule is a limit you give to KiCad: the narrowest track, the smallest gap between two pieces of copper, the smallest hole. Every way of making a board has such limits; below them, tracks break or touch. KiCad gives each new track its width from the rules and reports anything that breaks them, so set the rules before you route. The values below suit home etching and milling, the roughest of the three ways to make this board.
 
 <Steps>
 1. Open **File > Board Setup...** in the PCB Editor. In the dialog, expand **Design Rules** and click **Net Classes**. A net class is a group of nets that share the same rules.

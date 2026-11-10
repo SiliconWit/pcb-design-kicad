@@ -123,7 +123,7 @@ The RP2040 reads its program from the flash chip over six tracks: a chip select,
 
 Three properties of the RP2040 decide what the board must contain.
 
-It has no flash memory inside. The program lives in the external flash chip, and the RP2040 runs it directly from there (execute in place, XIP), so the six QSPI tracks carry every instruction and must be routed with care. The chip does hold a small permanent program, the boot ROM, that nobody can erase. Hold the BOOTSEL button while you plug in USB, and the boot ROM makes the board appear on the computer as a drive. You copy a `.uf2` program file to that drive, and the board is programmed. No programmer is needed, and no faulty program can stop this from working.
+It has no flash memory inside. The program lives in the external flash chip, and the RP2040 runs it directly from there (execute in place, XIP), so the six QSPI tracks carry every instruction and must be routed with care. The chip does hold a small permanent program, the boot ROM, that nobody can erase. Hold BOOTSEL while you plug in USB, and the boot ROM shows the board to the computer as a drive; copy a `.uf2` program file to it, and the board is programmed. No programmer is needed, and no faulty program can stop this from working.
 
 It has USB inside. The USB transceiver (the PHY) is part of the chip, so D+ and D- go from the connector to the chip through two resistors and nothing else. USB needs an exact 48 MHz clock. A 12 MHz crystal gives the reference, and a PLL inside the chip (a circuit that multiplies a clock to a higher frequency) makes 48 MHz from it.
 

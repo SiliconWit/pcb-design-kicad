@@ -124,7 +124,7 @@ USB sends each bit as the difference between two wires, D+ and D-. The two track
 
 Two layers are enough for a slow microcontroller with simple power needs. USB, faster clocks and chips with many close pins are easier and safer on four layers, for four reasons.
 
-The first reason is the return path. Every signal is a loop: current leaves the chip along a track and must come back to it. A fast signal comes back by the path that encloses the least area. With a ground plane on Layer 2, that path is in the plane, directly under the track, 0.2 mm away. A small loop radiates little and picks up little, so the board makes less electromagnetic interference (EMI). On two layers the return current goes around gaps and other tracks, and the loop is large.
+The first reason is the return path. Every signal is a loop: current leaves the chip along a track and must come back, and a fast signal comes back by the path that encloses the least area. With a ground plane on Layer 2, that path lies in the plane directly under the track, 0.2 mm away. A small loop radiates and picks up little, so the board makes less electromagnetic interference (EMI). On two layers the return current goes around gaps and other tracks, and the loop is large.
 
 The second reason is power. Layer 3 is a sheet of 3.3V. Each part reaches it through a via (a plated hole that joins layers) beside its pin, so no long, thin power track loses voltage on the way.
 
@@ -336,7 +336,7 @@ Place the parts in this order, because the first ones have the least freedom: US
 
 ### Via Stitching
 
-The GND pours on the outer layers are useful only if they are joined to the GND plane at many points. A piece of pour joined at one point acts as an antenna. Via stitching is a regular pattern of GND vias that makes those joints. It also carries heat from the outer layers to the inner copper.
+The GND pours on the outer layers help only where they are joined to the GND plane, at many points; a piece of pour joined at one point acts as an antenna. Via stitching is a regular pattern of GND vias that makes those joints. It also carries heat from the outer layers to the inner copper.
 
 <Steps>
 1. **Stitch around the board edge.** In KiCad, use Place > Via and set the via net to GND. Place vias every 3 to 5mm around the board, inside the ground pour, at least 0.5mm from the edge.

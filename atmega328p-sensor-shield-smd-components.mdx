@@ -25,7 +25,7 @@ import { Card, CardGrid, Badge, Steps, LinkButton, FileTree } from '@astrojs/sta
 
 import PcbDesignKicadComments from '../../../../components/pcb-design-kicad/PcbDesignKicadComments.astro';
 
-The sensor you want for a project is often sold in one form only: a square of plastic 2.5 mm wide with no legs at all. Most modern sensors are made this way, as surface-mount devices (SMD) that are soldered flat on the copper and need no holes. If you can only design with through-hole parts, you cannot use them. In this lesson you design a board that reads temperature, humidity and light with two such sensors and an ATmega328P in a surface-mount package. You learn how surface-mount footprints differ, how to solder them by hand, and how to cut the board on a CNC milling machine. #KiCad #SMD #SensorShield
+The sensor you want for a project is often sold in one form only: a square of plastic 2.5 mm wide with no legs at all. Most modern sensors are made this way, as surface-mount devices (SMD) that are soldered flat on the copper and need no holes. With through-hole design alone, you cannot use them. In this lesson you design a board that reads temperature, humidity and light with two such sensors and an ATmega328P in a surface-mount package. You learn how surface-mount footprints differ, how to solder them by hand, and how to cut the board on a CNC milling machine. #KiCad #SMD #SensorShield
 
 ```text
   Through-hole resistor:
@@ -167,7 +167,7 @@ The MCU needs the same four circuits as on the [through-hole breakout board](/ed
 
 ### I2C Bus and Sensors
 
-I2C is a bus of two wires that many chips share: SDA carries the data and SCL carries the clock. A chip on the bus can only pull a wire down to 0 V. Nothing drives a wire up, so each wire needs one resistor to the supply (a pull-up) that returns it to the high level. Each sensor has its own address, so the MCU can speak to one at a time.
+I2C is a bus of two wires that many chips share: SDA carries the data and SCL the clock. A chip can only pull a wire down to 0 V, as a hand pulls a rope; nothing drives it up, so each wire needs one resistor to the supply (a pull-up) to return it high. Each sensor has its own address, so the MCU speaks to one at a time.
 
 <Steps>
 1. **I2C pull-ups.** Add two 4.7 kΩ resistors: R2 from SDA (PC4/pin 27) to `+3V3` and R3 from SCL (PC5/pin 28) to `+3V3`. A larger value lets the wire rise too slowly, and a much smaller one stops the chips pulling it low. The resistors go to 3.3V so the sensors never see 5 V. The ATmega328P at 5 V reads 3.3 V as high in practice, but its data sheet guarantees this only from 3.5 V, so a product would add a level shifter.
@@ -325,7 +325,7 @@ It needs no chemicals, it drills the holes in the same setup, and it cuts channe
 
 4. **Fix the copper board** to the machine bed with double-sided tape. The board must lie flat: where it lifts, the cut is too deep, and where it sinks, copper remains.
 
-5. **Set the tool height (the Z origin).** Lower the bit until it just touches the copper. A touch probe finds this point exactly. This setting decides the result: too high and copper is left between tracks, too low and the V-shaped bit cuts a wide channel that eats the tracks.
+5. **Set the tool height (the Z origin).** Lower the bit until it just touches the copper; a touch probe finds this point exactly. This setting decides the result: too high leaves copper between tracks, and too low lets the V-shaped bit cut a wide channel that eats the tracks.
 
 6. **Mill the front copper.** Run the G-code for F.Cu.
 

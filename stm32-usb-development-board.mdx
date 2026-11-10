@@ -139,7 +139,7 @@ The STM32F103 works only up to 3.6 V on its supply. USB gives 5 V, so a regulato
 
 ### MCU and Decoupling
 
-A chip that switches 72 million times a second takes its current in pulses a few nanoseconds long. The track from the regulator has inductance, which resists a fast change of current, so for a moment the voltage at the pin dips and the chip can reset or make errors. A 100 nF decoupling capacitor at the pin is a local store of charge that supplies the pulse. It works only if it is close: as a rough guide, each millimetre of track adds about 1 nH, and a 50 mA pulse that rises in 5 ns loses 10 mV across each nanohenry.
+A chip that switches 72 million times a second takes its current in pulses a few nanoseconds long. The track from the regulator has inductance, which resists a fast change of current, so the pin voltage dips for a moment and the chip can reset or make errors. A 100 nF decoupling capacitor at the pin is a local store of charge that supplies the pulse, and only if it is close: as a rough guide, each millimetre of track adds about 1 nH, and a 50 mA pulse that rises in 5 ns loses 10 mV across each nanohenry, so about 10 mV for each millimetre.
 
 The chip has three VDD pins, an analog supply pin (VDDA) and a backup supply pin (VBAT). Each gets its own capacitor.
 

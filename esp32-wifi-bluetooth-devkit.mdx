@@ -183,7 +183,7 @@ The PDF is an earlier drawing of this board and differs from the text: its part 
 <Steps>
 1. Place the ESP32 module. Add `ESP32-WROOM-32` from the RF_Module library. The symbol shows all exposed pins of the module including the ground pad.
 
-2. Connect all power pins. Wire every VDD pin to `+3V3` and every GND pin (including the large ground pad) to `GND`. The WROOM-32 has multiple ground pins; all must be connected for proper RF return currents.
+2. Connect all power pins. Wire every VDD pin to `+3V3` and every GND pin (including the large ground pad) to `GND`. All the ground pins must be connected, because they carry the radio's return currents.
 
 3. EN pin circuit. Connect EN to +3V3 through a 10 kΩ pull-up resistor (R1). Place a 100 nF capacitor (C6) from EN to GND. The pair is a filter: a short noise pulse cannot reset the module. It also delays the rise of EN by about 1 ms, which the auto-reset circuit needs. The EN pin also connects to the auto-reset circuit and the EN pushbutton (SW1).
 
@@ -237,7 +237,7 @@ So a transistor conducts only when the two lines differ. The table gives the vol
 | Low | High | On | Off | GPIO0 is low: the bootloader is selected |
 | Low | Low | Off | Off | The board runs |
 
-An upload uses rows two, three and one, in that order. The tool pulls RTS low, and the chip is in reset. Then it releases RTS and pulls DTR low: EN rises, the chip starts, reads GPIO0 low and enters the bootloader. Then it releases DTR, and the firmware goes over the UART.
+An upload uses rows two, three and one, in that order. RTS low holds the chip in reset. RTS released and DTR low: EN rises, and the chip starts, reads GPIO0 low and enters the bootloader. DTR released: the firmware goes over the UART.
 
 No emitter goes to GND. With grounded emitters, the two lines resting high would switch both transistors on and hold the chip in reset for ever.
 

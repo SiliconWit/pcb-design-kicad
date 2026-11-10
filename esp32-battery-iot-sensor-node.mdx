@@ -149,7 +149,7 @@ The cell decides the value. Most small cells allow a charge current of 0.5 to 1 
 
 ### Solar and USB Input: Diode-OR
 
-Two sources feed one charger, and neither may push current into the other. A diode passes current in one direction only, so each source gets its own Schottky diode (SS14, which loses only about 0.3V) to the TP4056 VIN pin. This is a diode-OR: the source with the higher voltage supplies the current.
+Two sources feed one charger, and neither may push current into the other. A diode passes current in one direction only, like a one-way valve on each of two pipes that join, so each source gets its own Schottky diode (SS14, which loses only about 0.3V) to the TP4056 VIN pin. This is a diode-OR: the source with the higher voltage supplies the current.
 
 - USB VBUS connects through D2 to TP4056 VIN.
 - The solar panel connects through D1 to TP4056 VIN.
@@ -197,7 +197,7 @@ A power budget is a list of every current the cell must supply. Start with the p
 | Pull-up/pull-down resistors | ~1 µA | Depends on values chosen |
 | **Total sleep current** | **~51 µA** | Conservative estimate |
 
-The node takes a large current for a short time and a small one for a long time. The cell sees the average: the sleep current, plus the wake current multiplied by the fraction of time the node is awake. The battery life in hours is the capacity in mAh divided by the average current in mA.
+The node takes a large current for a short time and a small one for a long time, and the cell sees the average: the sleep current plus the wake current times the fraction of time awake. Battery life in hours is the capacity in mAh divided by the average current in mA.
 
 **Battery life estimate with a 500 mAh cell:**
 
@@ -219,7 +219,7 @@ These are upper estimates: a cell also loses a few percent of its charge each mo
 <InArticleAd />
 
 
-Firmware puts the chip to sleep, but the board can still waste current through pull-up resistors, LEDs and parts that stay powered. With BLE, half of the average current is sleep current, so every microampere counts.
+Firmware puts the chip to sleep, but pull-up resistors, LEDs and parts that stay powered can still waste current. With BLE, half of the average current is sleep current, so every microampere counts.
 
 ### Resistor Values Matter
 

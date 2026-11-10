@@ -107,9 +107,9 @@ Four terms:
 <InArticleAd />
 
 
-A mixed-signal board carries power and small signals together. The difficulty is that copper is not a perfect conductor. A motor current of 1.5 A in a thin ground trace of 0.05 ohm makes 75 mV across that trace. If the sensor uses the same trace as its ground, its "0 V" moves by 75 mV each time the motor starts, and the readings move with it. A motor also makes voltage spikes when its current is switched off.
+A mixed-signal board carries power and small signals together, and copper is not a perfect conductor. A motor current of 1.5 A in a thin ground trace of 0.05 ohm makes 75 mV across it. If the sensor shares that trace as its ground, its "0 V" moves by 75 mV each time the motor starts, and the readings move with it. A motor also makes voltage spikes when its current is switched off.
 
-So treat the board as two zones. The motor zone (left half) carries high current, tolerates noise and needs traces 1 mm wide or more. The signal zone (right half) carries millivolt signals and I2C (a two-wire data bus) and needs a clean supply. The two grounds join at a single chosen point, called a star ground: a quiet side street joined to the main road at one junction, so that no lorry uses it as a short cut. The comparison has a limit. Current takes every path open to it, so the layout must make the motor's own path the easy one: screw terminals close to the driver, and a 100 nF capacitor within 3 mm of each supply pin.
+So treat the board as two zones. The motor zone (left half) carries high current, tolerates noise and needs traces 1 mm wide or more. The signal zone (right half) carries millivolt signals and I2C (a two-wire data bus) and needs a clean supply. The two grounds join at a single chosen point, called a star ground: a quiet side street joined to the main road at one junction, so that no lorry uses it as a short cut. The comparison has a limit: current takes every path open to it, so the layout must make the motor's own path the easy one: screw terminals close to the driver, and a 100 nF capacitor within 3 mm of each supply pin.
 
 ## DRV8833 Motor Driver
 
