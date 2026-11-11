@@ -212,7 +212,9 @@ The 5 seconds awake use more than nine tenths of the energy. For BLE-only transm
 - Average current: $51\,\mu\text{A} + (15\,\text{mA} \times 0.0033) \approx 51\,\mu\text{A} + 50\,\mu\text{A} \approx 101\,\mu\text{A}$
 - Battery life: $500\,\text{mAh} / 0.101\,\text{mA} \approx 4950\,\text{hours} \approx$ **206 days**
 
-These are upper estimates: a cell also loses a few percent of its charge each month by itself. A small solar panel can keep the node running without a visit.
+These are upper estimates: a cell also loses a few percent of its charge each month by itself. A small solar panel can keep the node running without a visit. The wake currents and times are assumptions, and the BLE figure is optimistic (the processor alone takes some milliamperes awake): measure them on your board, as the check at the end shows.
+
+A node in a field should also report its cell voltage, so you see a cell failing weeks before the node stops. Two 1 MΩ resistors from B+ to GND, the middle to an ADC pin (GPIO1) with 100 nF to GND, give half the cell voltage (2.1 V at 4.2 V) for 2.1 µA.
 
 ## Deep Sleep Considerations for PCB Design
 
@@ -395,7 +397,7 @@ Place a JST-PH 2-pin connector (J2) for the battery. Connect the positive pin to
 
 5. **I2C pins for BME280**
 
-   Use GPIO4 as SDA and GPIO5 as SCL, each with a 10 kΩ pull-up to the 3.3V rail.
+   Use GPIO4 as SDA and GPIO5 as SCL, each with a 10 kΩ pull-up to the switched sensor rail (the drain of Q2), not to the main 3.3V rail.
 
 6. **Sensor power control**
 
@@ -417,7 +419,7 @@ Place a JST-PH 2-pin connector (J2) for the battery. Connect the positive pin to
 
 3. **Connect I2C**
 
-   Connect SDA to GPIO4 and SCL to GPIO5 on the ESP32-C3. The pull-up resistors are on the main 3.3V rail, so the lines stay high when the sensor power MOSFET is off. The sensor itself cannot answer until Q2 is on.
+   Connect SDA to GPIO4 and SCL to GPIO5 on the ESP32-C3. The pull-ups go on the switched rail, with the sensor. On the main rail they would hold the lines at 3.3 V while the sensor has no supply, and current would flow through the sensor's input protection diodes into its empty supply: about (3.3 − 0.6) V / 10 kΩ ≈ 0.27 mA a line, ten times the sleep budget of the whole board.
 
 4. **CSB pin**
 
@@ -529,7 +531,7 @@ The TP4056 is a linear charger: the voltage it does not pass to the cell becomes
 
 $$P = (5\,\text{V} - 3.7\,\text{V}) \times 0.5\,\text{A} = 0.65\,\text{W}$$
 
-Into a deeply discharged cell at 3.0V it is about 1 W. Make the copper around the pad and GND pins as large as you can, and join it to a pour on both layers with several vias.
+Into a deeply discharged cell at 3.0V it is about 1 W. After D2, VIN is nearer 4.7 V, which lowers these to about 0.5 W and 0.85 W. The TP4056 reduces its current by itself when its die reaches about 120 °C, so a charger short of copper charges slowly rather than failing. Make the copper around the pad and GND pins as large as you can, and join it to a pour on both layers with several vias.
 
 ### Routing Guidelines
 
@@ -580,6 +582,8 @@ Upload to JLCPCB or another fabricator. For this 2-layer board the standard sett
 | Min trace/space | 6/6 mil (0.15/0.15 mm) |
 
 Order a stencil for the top layer. The BME280 (LGA-8) and the ESP32-C3 module have their pads underneath, so they are soldered with paste and hot air or a reflow oven.
+
+Before you order, do the six checks of the [breakout board](/education/pcb-design-kicad/atmega328p-breakout-board-through-hole/#check-before-you-order), and on this board three more: the PROG resistor value in the BOM is 2.4 kΩ (not the 1.2 kΩ of the downloadable PDF), the battery connector's pin 1 matches the cells you will use, and the antenna area is empty on both layers in the Gerber viewer. A solar panel's open-circuit voltage must stay below the TP4056's absolute maximum input (8 V in its data sheet); a "5 V" panel can give 6 to 7 V with no load.
 
 Before the first charge, check the cell's polarity with a meter, and stay with the board while it charges.
 
@@ -729,6 +733,16 @@ lib_deps =
 ```
 
 The source code is the same with one addition: put `#include <Arduino.h>` on the first line. Place it in `src/main.cpp`.
+
+### Check it
+
+The promise of this board is months on one cell. Measure what the budget rests on:
+
+- **Charge current.** At full current the PROG pin reads 1.0 V; the current is (V_PROG / R_PROG) × 1200, so 0.5 A on 2.4 kΩ. Lower on a warm charger means the thermal limit is acting.
+- **Sleep current.** USB and panel unplugged, a meter on its µA range in series with the cell, node asleep: about 50 µA. Milliamperes mean a part still awake: an LED, a pull-up pulled low, a back-powered sensor.
+- **The measuring trap.** On its µA range a meter puts about 100 Ω in series; at the 80 mA of a wake that drops 8 V and the node resets. Short the meter during the wake, or use a current-profiling tool.
+- **Wake energy.** Time one wake (serial log, or an oscilloscope across 1 Ω in the supply), put the measured time and current in the budget, and recompute the days.
+- **Temperature.** Compare with a thermometer beside the board, charger idle and then charging. A difference only while charging is heat from the TP4056.
 
 ## What You Have Learned
 

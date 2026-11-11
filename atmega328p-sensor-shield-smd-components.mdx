@@ -1,10 +1,10 @@
 ---
 title: "ATmega328P Sensor Shield: SMD Components and CNC Milling"
-description: "Design an SMD sensor shield with ATmega328P TQFP-32, I2C temperature/humidity sensor, SPI light sensor, and double-sided PCB layout. Learn SMD footprints, fine-pitch soldering, and CNC milling for PCB fabrication in KiCad 9"
+description: "Design an SMD sensor shield with ATmega328P TQFP-32, I2C temperature/humidity sensor, I2C light sensor, and double-sided PCB layout. Learn SMD footprints, fine-pitch soldering, and CNC milling for PCB fabrication in KiCad 9"
 contributors: "sam-macharia,julius-righa"
 pubDate: 2026-03-05
 tags: ["kicad", "pcb-design", "atmega328p", "smd", "i2c", "spi", "cnc-milling", "sensor-shield", "tqfp"]
-excerpt: "Upgrade from through-hole to surface mount with a sensor shield built around the ATmega328P TQFP-32 package. Add I2C and SPI sensors, learn SMD footprint selection, double-sided layout, and use CNC milling as an alternative to chemical etching."
+excerpt: "Upgrade from through-hole to surface mount with a sensor shield built around the ATmega328P TQFP-32 package. Add two I2C sensors, learn SMD footprint selection, double-sided layout, and use CNC milling as an alternative to chemical etching."
 heroImage: "https://cdn.siliconwit.com/education/pcb-design-kicad/pcb-design-kicad.png"
 ---
 
@@ -144,7 +144,7 @@ USB gives 5 V, which suits the MCU. The light sensor works only up to 3.6 V, so 
 
 2. **Place the 3.3V regulator.** Add `AMS1117-3.3` (SOT-223 package). Its input goes to the USB 5 V and its output to a `+3V3` power symbol.
 
-3. **Add its two capacitors.** Place C7 (10 µF) from the regulator input to `GND` and C8 (10 µF) from the regulator output to `GND`. Without a capacitor at its output this regulator can oscillate.
+3. **Add its two capacitors.** Place C7 (10 µF) from the regulator input to `GND` and C8 (10 µF) from the regulator output to `GND`. Without a capacitor at its output this regulator can oscillate. The AMS1117 data sheet asks for 22 µF tantalum there, and some makers' versions oscillate with a small ceramic one. With the 10 µF ceramic of the bill of materials, look at the 3.3 V rail with an oscilloscope; 22 µF tantalum is the safe choice.
 
 4. **Add power symbols and wires.** USB VBUS to `+5V`, USB GND to `GND`, regulator input to `+5V`, regulator output to `+3V3`.
 </Steps>
@@ -190,7 +190,7 @@ The board has no display, so it sends its readings as text over two serial wires
 ### Power LED
 
 <Steps>
-1. **Place an 0805 LED** (D1) and a 330 Ω resistor (R4). Connect `+3V3` to R4, R4 to the D1 anode, and the D1 cathode to GND. The LED shows that the 3.3V supply is present.
+1. **Place an 0805 LED** (D1) and a 330 Ω resistor (R4). Connect `+3V3` to R4, R4 to the D1 anode, and the D1 cathode to GND. The LED shows that the 3.3V supply is present. Choose it by its forward voltage: a yellow-green LED (about 2 V) gets (3.3 − 2.0) / 330 ≈ 4 mA, but a bright pure-green one (about 3 V) gets under 1 mA and looks dim.
 
 2. **Run the electrical rules check (ERC)** and correct every error.
 </Steps>
@@ -312,6 +312,8 @@ It needs no chemicals, it drills the holes in the same setup, and it cuts channe
 
 ### CNC Milling Workflow
 
+Before you cut copper, do the six checks of the [breakout board](/education/pcb-design-kicad/atmega328p-breakout-board-through-hole/#check-before-you-order). Here the 1:1 paper print matters most for the footprint you drew yourself: lay the real VEML7700 on the print and compare each pad with the land pattern in the Vishay data sheet. Check also that the USB socket's opening reaches past the board edge.
+
 <Steps>
 1. **Export Gerber files.** A Gerber file is a flat picture of one layer, in a format that board factories and milling programs read. In the KiCad PCB Editor, go to **File > Plot**. Select the `F.Cu`, `B.Cu` and `Edge.Cuts` layers. Set the format to **Gerber** and click **Plot**. Then click **Generate Drill Files** and choose Excellon format, which lists every hole.
 
@@ -419,7 +421,7 @@ A solder bridge here can short a USB port's 5 V to ground or put 5 V on a 3.3 V 
 
 3. **Apply power through USB.** The power LED lights. Measure 5 V at the MCU VCC pin and 3.3 V at the sensor VDD pins. If a part becomes hot, unplug at once.
 
-4. **Test the MCU.** Connect the programmer to the ISP header and run `avrdude -c usbasp -p m328p`. If it reports the device signature, the MCU is powered and soldered correctly. This board has no LED on an output pin, so the crystal is proved only by the serial text of the program below.
+4. **Test the MCU.** Connect the programmer to the ISP header and run `avrdude -c usbasp -p m328p`. If it reports the device signature, the MCU is powered and soldered correctly. This board has no LED on an output pin, so the crystal is proved only by the serial text of the program below. Use one supply at a time: a USBasp can also feed 5 V through the header, and with the USB cable plugged in as well, the two supplies push current into each other. Unplug USB while programming, or set the programmer's target-power jumper to off.
 </Steps>
 
 ## Firmware: Reading Sensors
@@ -604,6 +606,17 @@ Sensor Shield Ready
 T=23C H=45% L=312 lux
 T=23C H=45% L=310 lux
 ```
+
+### Check it
+
+Test each number against something you know:
+
+- **Humidity and temperature.** Breathe on the SHT30: H rises above 80% and falls back within a minute. Compare T with a thermometer beside the board. 1 to 3 °C above the room means the regulator and the MCU heat the sensor through the copper.
+- **Light.** A finger over the VEML7700: L near 0. A phone torch above it: thousands of lux. Check the factor of 0.0576 lux per count against a light meter; it depends on the data sheet revision of your part.
+- **A sensor that does not answer** gives `T=130C H=100%` or `L=3774 lux` (the program reads 0xFFFF from an empty bus). Check its joints, address and supply.
+- **No text after "Sensor Shield Ready"**: the program waits for ever on the bus. Idle SDA and SCL must read 3.3 V; 0 V means a missing pull-up or a short.
+
+That last case is the field weakness of this program: the I2C functions wait with no time limit and ignore the status `i2c_start()` returns, so one loose wire stops the board. A device on a site needs a timeout on each wait, a check of each status, and a check of the SHT30's CRC bytes.
 
 ## What You Have Learned
 

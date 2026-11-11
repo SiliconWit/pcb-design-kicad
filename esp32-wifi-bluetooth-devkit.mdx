@@ -193,7 +193,7 @@ The PDF is an earlier drawing of this board and differs from the text: its part 
 
 6. Decoupling capacitors. Place 100 nF caps (C3, C4) on the VDD pins. Draw them beside the module in the schematic, so that you remember to place them beside it on the board.
 
-7. User LED. Connect GPIO2 through a 330 ohm resistor (R5) to the anode of D1 (blue LED), cathode to GND. The resistor limits the LED current to a few milliamperes. An LED to GND also holds GPIO2 low at reset, which this strapping pin requires.
+7. User LED. Connect GPIO2 through a 330 ohm resistor (R5) to the anode of D1 (blue LED), cathode to GND. The resistor limits the current, but a blue LED drops about 3 V, so from 3.3 V only about (3.3 − 3.0) / 330 ≈ 1 mA flows and the LED is dim. A red LED (about 2 V) gets about 4 mA with the same resistor. An LED to GND also holds GPIO2 low at reset, which this strapping pin requires.
 
 8. GPIO headers. Place two 1x19 pin headers (J2, J3) and route all remaining GPIO pins to them. Follow the ESP32-DevKitC pinout order if you want compatibility with existing tutorials and shields.
 </Steps>
@@ -205,7 +205,7 @@ The PDF is an earlier drawing of this board and differs from the text: its part 
 
 2. **USB data lines.** Connect the USB Micro-B D+ and D- pins to the CP2102N's D+ and D- pins.
 
-3. **Power connections.** Connect the CP2102N VDD pin to +3V3 and VBUS to the VBUS pin (if available on the package) or to +3V3 through the regulator. Add a 100 nF decoupling capacitor (C5) from VDD to GND.
+3. **Power connections.** Power the CP2102N from the board's +3V3: its VDD pin, its VIO pin (the supply of its UART pins), and its REGIN pin (the input of its own regulator, not used here), go to +3V3. Its VBUS pin only senses that a cable is present; do not leave it open. Follow the "self-powered" connection drawing in the CP2102N data sheet, which feeds VBUS from the USB 5 V through a resistor divider. Add a 100 nF decoupling capacitor (C5) from VDD to GND.
 
 4. **UART pins.** Connect CP2102N TXD to ESP32 RXD0 (GPIO3). Connect CP2102N RXD to ESP32 TXD0 (GPIO1).
 
@@ -296,7 +296,7 @@ A keep-out drawn as a Rule Area makes KiCad refuse copper there, so you do not d
 <Steps>
 1. **Identify the antenna area.** The ESP32-WROOM-32 footprint in KiCad includes a courtyard (the outline of the space a part needs) that marks the antenna region. The antenna extends approximately 5mm beyond the metal shielding can at the top of the module.
 
-2. **Draw a Rule Area.** Select Add Rule Area (also called Keep Out Zone) from the right toolbar. In the properties dialog, check "Keep out copper pour" for all copper layers (F.Cu, the front, and B.Cu, the back). Draw a rectangle covering the entire antenna area plus 2mm margin on all sides.
+2. **Draw a Rule Area.** Use **Place > Draw Rule Areas** (`Ctrl+Shift+K`). Select both copper layers (F.Cu, the front, and B.Cu, the back) and tick **Keep out tracks**, **Keep out vias**, **Keep out pads** and **Keep out zone fills**. Leave **Keep out footprints** off: the module's own courtyard covers the antenna, and that box would make DRC report the module itself. Draw a rectangle covering the entire antenna area plus 2mm margin on all sides. 2 mm is the least; the layout figures in Espressif's module data sheet show the preferred cases (antenna past the board edge is best) and a much wider clear area when the antenna sits over the board.
 
 3. **Verify no copper exists in the keepout.** After filling zones (press B), look at the antenna area. There should be no ground pour, no traces, and no vias within the keepout rectangle on any copper layer.
 
@@ -367,6 +367,8 @@ DRC is the design rules check: KiCad compares the board with the limits above.
 
 
 A factory works from Gerber files (one drawing for each layer) and a drill file. Generate Gerbers for F.Cu, B.Cu, F.Mask, B.Mask, F.SilkS, B.SilkS, and Edge.Cuts, plus the drill file. Zip everything and upload to JLCPCB. The export steps, the ordering process and the BOM and pick-and-place files are the same as for the [STM32 USB development board](/education/pcb-design-kicad/stm32-usb-development-board/).
+
+Before you order, do the six checks of the [breakout board](/education/pcb-design-kicad/atmega328p-breakout-board-through-hole/#check-before-you-order). For this board, look in the Gerber viewer at both copper layers under the antenna (nothing there), and check the pin order of Q1 and Q2 in the transistor's data sheet: SOT-23 transistors sold under one name do not all share one pinout, and a swapped base and emitter stops the auto-reset.
 
 For a 2-layer board this size (55x28mm), expect to pay 2 to 5 USD for 5 boards at JLCPCB. Select 1.6mm board thickness and HASL surface finish. If you plan to hand-solder the QFN-28 CP2102N, the ENIG finish gives flatter pads, but HASL works with care. The ESP32 module has castellated pads (half holes on its edges), so a standard iron can solder it: apply flux and solder each pad in turn.
 
@@ -484,6 +486,8 @@ If the board does not respond after clicking Upload:
 - Check the auto-reset circuit. Hold the BOOT button, press and release EN, then release BOOT. Click Upload again. If this works but auto-reset does not, inspect the transistor wiring and the DTR/RTS connections from the CP2102N.
 - Measure the 3.3V supply on the ESP32 VDD pins. It should be 3.3V plus or minus 0.1V. Below 3.0V, suspect the LDO or its capacitors.
 - If no serial port appears when you plug in the board, look for solder bridges between the pins of the CP2102N.
+- If the log shows "Brownout detector was triggered" when the radio starts, the 3.3 V rail dips under the transmit current: check C2 and the decoupling beside the module, the polyfuse, and the USB cable (a long thin one drops voltage).
+- To check the radio against a reference, put your board and a bought ESP32 DevKitC (or a phone with a WiFi analyser app) at the same place and compare the RSSI of the same network. Within about 5 dB is good. 10 dB weaker means the antenna receives a tenth of the power, roughly a third of the range in open air: look at the copper near the antenna.
 - If the scan finds no networks, check the antenna keepout zone. Copper under the antenna is the most common cause of poor WiFi on custom ESP32 boards. Check also that no metal box and no hand covers the antenna.
 
 ## What You Have Learned

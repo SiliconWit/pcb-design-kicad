@@ -110,7 +110,8 @@ The RP2040 reads its program from the flash chip over six tracks: a chip select,
 | R1, R2 | 5.1 kΩ | 0402 | 2 | USB-C CC1, CC2 pull-downs |
 | R3 | 27 Ω | 0402 | 2 | USB series termination (D+, D-) |
 | R4 | 10 kΩ | 0402 | 1 | RUN pin pull-up |
-| R5 | 1 kΩ | 0402 | 1 | Flash CS pull-up |
+| R5 | 10 kΩ | 0402 | 1 | Flash CS pull-up |
+| R7 | 1 kΩ | 0402 | 1 | BOOTSEL button series resistor |
 | R6 | 330 Ω | 0402 | 1 | WS2812B data series resistor |
 | SW1 | Tactile switch | SMD 3x6mm | 1 | BOOTSEL (QSPI_SS to GND) |
 | SW2 | Tactile switch | SMD 3x6mm | 1 | Reset (RUN to GND) |
@@ -223,7 +224,7 @@ The W25Q128JV connects to the RP2040's six QSPI pins. These pins are not GPIO: t
 | VCC | 3.3V | Power (100 nF + 4.7 µF decoupling) |
 | GND | GND | Ground |
 
-Add a 1 kΩ pull-up resistor from CS# to 3.3V. While the power rises, the RP2040 does not yet drive this line, and the resistor keeps the flash chip unselected.
+Add a 10 kΩ pull-up resistor (R5) from CS# to 3.3V. While the power rises, the RP2040 does not yet drive this line, and the resistor keeps the flash chip unselected. It must be much larger than the 1 kΩ in series with the BOOTSEL button, for the reason given under BOOTSEL.
 
 ### Crystal Oscillator
 
@@ -239,7 +240,7 @@ In the layout:
 
 ### BOOTSEL and Reset
 
-**BOOTSEL button:** The button connects QSPI_SS, the chip select line of the flash, to GND. If QSPI_SS is low when the chip starts, the boot ROM does not start the program in flash. It shows the board to the computer as a drive and waits for a `.uf2` file. After the start, the RP2040 drives QSPI_SS as an output and does not read the button.
+**BOOTSEL button:** The button connects QSPI_SS, the chip select line of the flash, to GND through a 1 kΩ resistor (R7). If QSPI_SS is low when the chip starts, the boot ROM does not start the program in flash. It shows the board to the computer as a drive and waits for a `.uf2` file. After the start, the RP2040 drives QSPI_SS as an output. Without R7, a press while the program runs would short that driven-high output to ground; R7 holds the current to 3.3 mA. The pull-up must be far larger than R7 so a press still reads low: with 10 kΩ the pin sits at 3.3 × 1 / 11 ≈ 0.3 V, with 1 kΩ at 1.65 V, neither high nor low. The Raspberry Pi Pico also puts 1 kΩ in series with its BOOTSEL button.
 
 **Reset button:** RUN is the reset pin, and the chip restarts when it is pulled to 0 V. Connect a 10 kΩ pull-up from RUN to 3.3V and a tactile switch from RUN to GND.
 
@@ -258,7 +259,7 @@ A 1x3 pin header is enough. Some debug probes (Raspberry Pi Debug Probe, Picopro
 
 The WS2812B is an RGB LED with its own driver chip inside. One data line sets its colour:
 
-- VDD: 3.3V (the data sheet range is 3.5 to 5.3V; most units work at 3.3V; you can also power it from VBUS at 5V)
+- VDD: 3.3V (the data sheet range is 3.5 to 5.3V; most units work at 3.3V; you can also power it from VBUS at 5V). At 5 V the LED reads a high on DIN only above 0.7 × 5 = 3.5 V, more than a 3.3 V pin gives; at 3.3 V the data is safe but the supply is below the data sheet range. A product at 5 V adds a level shifter (such as a 74AHCT1G125) on DIN.
 - DIN: connect to a GPIO (for example, GPIO16) through a 330 Ω series resistor, which softens the signal edge
 - DOUT: leave unconnected (it would feed the next LED of a chain)
 - GND: board ground
@@ -341,6 +342,7 @@ The flash clock can run at up to 133 MHz, the limit of the W25Q128JV. One clock 
 
 USB sends each bit as the difference between D+ and D-, so the two tracks run side by side as one differential pair. The cable and the chip are made for 90 Ω between them, and the track width, the gap and the height above the ground plane set that value. The [STM32 USB-C four-layer board](/education/pcb-design-kicad/stm32-usb-c-four-layer-pcb/) explains how.
 
+- Name the nets so the router can pair them: `USB_D+` and `USB_D-` from the connector to the resistors, and for example `RP_D+` and `RP_D-` from the resistors to the chip. KiCad pairs only names that end in `+` and `-`, or `P` and `N`; `USB_DP` and `USB_DM` are not paired
 - Route D+ and D- as a differential pair on F.Cu, with no vias
 - Keep the ground plane on In1.Cu whole beneath the pair
 - Take the track width and gap for 90 Ω from the factory's impedance calculator for your stack-up. Start from 0.2 mm width and 0.15 mm gap on a standard 4-layer 1.6 mm board
@@ -397,6 +399,14 @@ When you order from JLCPCB or a similar factory, start from these settings:
 | Impedance control | Optional (select if available; specify 90 Ω differential for USB) |
 
 **Cost note:** five 4-layer boards of 55 x 22 mm cost about 8 to 15 USD at JLCPCB. HASL is a coat of solder on the pads, and ENIG is a thin, flat coat of gold. ENIG adds 5 to 10 USD, and its flat pads make a QFN easier to solder. Impedance control adds cost, and full-speed USB on a board this small does not need it.
+
+### Check before you order
+
+Do the six checks of the [breakout board](/education/pcb-design-kicad/atmega328p-breakout-board-through-hole/#check-before-you-order) and those of the [four-layer STM32 board](/education/pcb-design-kicad/stm32-usb-c-four-layer-pcb/#check-before-you-order). Three more on this board:
+
+- **The flash footprint.** The W25Q128JVSIQ is the wide SOIC-8 (208 mil, `Package_SO:SOIC-8_5.23x5.23mm_P1.27mm`). The narrow 150 mil footprint looks alike in the editor and does not fit. Lay the chip on the 1:1 print.
+- **The paste layer of the RP2040** in the Gerber viewer: a grid on the exposed pad, not one block.
+- **Pins that must not float:** TESTEN to GND, USB_VDD and ADC_AVDD to 3.3V, VREG_VOUT to both DVDD pins.
 
 ### Stencil Order
 
@@ -541,6 +551,14 @@ The SDK blink example toggles GPIO25 (the onboard LED on the official Pico). To 
 
 </TabItem>
 </Tabs>
+
+### Check it
+
+The boot ROM needs only the supplies, the crystal and USB, not the flash. So what the computer shows splits the board in two:
+
+- **No drive with BOOTSEL held:** the fault is in power, the 12 MHz crystal or USB. Measure 3.3 V and 1.1 V (DVDD), then look at the USB pair and the CC resistors.
+- **The drive appears (its `INFO_UF2.TXT` names the RP2040) but a copied program does not run:** the fault is in the flash or its six tracks. A board that shows the drive at every start, even without BOOTSEL, has a boot ROM that finds no valid program in the flash.
+- **The program runs:** the LED shows red, green, blue and off for 0.5 s each, 2 s a cycle. Ten cycles take 20 s.
 
 ### PIO Example: WS2812B LED Control
 

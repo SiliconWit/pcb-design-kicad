@@ -81,7 +81,8 @@ A development board around the STM32F103C8T6, a 32-bit microcontroller (MCU) tha
 | R1 | 1.5 kΩ | 0805 | 1 | USB D+ pull-up |
 | R2 | 10 kΩ | 0805 | 1 | NRST pull-up |
 | R3 | 100 kΩ | 0805 | 1 | Boot0 pull-down |
-| R4, R5 | 330 Ω | 0805 | 2 | LED current limiting |
+| R4 | 330 Ω | 0805 | 1 | Power LED current limiting |
+| R5 | 1 kΩ | 0805 | 1 | User LED current limiting (PC13 sinks 3 mA at most) |
 | D1 | Green LED | 0805 | 1 | Power indicator |
 | D2 | Blue/Green LED | 0805 | 1 | User LED (PC13) |
 | J1 | USB Mini-B | SMD | 1 | Power + data |
@@ -170,7 +171,7 @@ A crystal keeps its marked frequency only when it sees the load capacitance its 
 <Steps>
 1. **Place the 32.768 kHz crystal** between OSC32_IN (pin 3) and OSC32_OUT (pin 4).
 
-2. **Add load capacitors.** Place C3 (6.8 pF) from OSC32_IN to GND and C4 (6.8 pF) from OSC32_OUT to GND. This oscillator runs on very little power and stops easily, so use the values the crystal's data sheet gives.
+2. **Add load capacitors.** Place C3 (6.8 pF) from OSC32_IN to GND and C4 (6.8 pF) from OSC32_OUT to GND. This oscillator runs on very little power and stops easily, so use the values the crystal's data sheet gives. By the HSE rule, with about 3 pF stray, two 6.8 pF capacitors make 6.8 / 2 + 3 ≈ 6.4 pF: they suit a crystal with CL of 6 to 7 pF. A common 12.5 pF watch crystal would need about 19 pF, and this chip's weak LSE driver may not start it (ST's guide AN2867 advises a low-load crystal). Check the CL of the crystal you buy.
 </Steps>
 
 :::tip[Crystal placement]
@@ -202,7 +203,7 @@ USB carries data on two wires, D+ and D-. The STM32F103 has a full-speed (12 Mbp
 </Steps>
 
 :::caution[USB D+ pull-up is mandatory]
-Without this resistor the board powers on and the computer never shows a USB device. Some STM32 chips have the pull-up inside. The STM32F103 does not.
+Without this resistor the board powers on and the computer never shows a USB device. Some STM32 chips have the pull-up inside. The STM32F103 does not. Many original Blue Pill boards have 10 kΩ here, and some computers do not recognise them. Two more classic faults: D+ and D- swapped, and connector symbol pins that do not match the footprint. Compare both with the connector's data sheet.
 :::
 
 ### SWD Debug Header
@@ -236,7 +237,7 @@ At each reset the chip reads two pins, Boot0 and Boot1, to decide where to start
 ### User LED and GPIO Headers
 
 <Steps>
-1. **User LED.** Connect D2 and R5 (330 Ω) in series from +3V3 to PC13 (pin 2). The LED lights when the program sets PC13 low, because current then flows from +3V3 through the LED into the pin.
+1. **User LED.** Connect D2 and R5 (1 kΩ) in series from +3V3 to PC13 (pin 2). The LED lights when the program sets PC13 low, because current then flows from +3V3 through the LED into the pin. The data sheet lets PC13 sink only 3 mA. With 330 Ω and a 2 V LED the current would be (3.3 − 2.0) / 330 ≈ 3.9 mA; with 1 kΩ it is 1.3 mA, enough for an indicator. A blue LED (about 3 V) would be very dim, so choose red, yellow or yellow-green.
 
 2. **GPIO headers.** Place two 1x20 pin headers (J3 and J4). Connect all remaining GPIO pins to them in the order of the Blue Pill, and include +3V3, +5V and GND pins.
 
@@ -313,7 +314,7 @@ JLCPCB's standard process makes tracks and gaps down to 0.127 mm and via holes d
 ### Routing
 
 <Steps>
-1. **USB tracks first.** Route D+ and D- from the connector to PA12 and PA11. The two signals work as a pair, so they must arrive together and see the same surroundings: keep them side by side on one layer, under 25 mm long, equal in length to within 2 mm, 0.3 mm wide, and with no vias.
+1. **USB tracks first.** Route D+ and D- from the connector to PA12 and PA11. The two signals work as a pair, so they must arrive together and see the same surroundings: keep them side by side on one layer, under 25 mm long, equal in length to within 2 mm, 0.3 mm wide, and with no vias. USB asks for 90 Ω between the lines, which on a 1.6 mm two-layer board needs tracks about 3 mm wide. At full speed this does not matter: an edge of 4 ns or more is about 66 cm long in FR-4, and a track under a sixth of that (11 cm) does not act as a transmission line.
 
 2. **Crystal tracks.** Make the tracks of both crystals as short as possible, and route no other signal between a crystal and the MCU.
 
@@ -407,10 +408,11 @@ The factory solders the surface-mount parts (SMT assembly) from the stock of its
    | 10 kΩ 0805 | C17414 |
    | 100 kΩ 0805 | C149504 |
    | 330 Ω 0805 | C23138 |
+   | 1 kΩ 0805 | C17513 |
    | 8 MHz crystal | C16172 |
    | 32.768 kHz crystal | C32346 |
 
-3. **Export the BOM.** Go to **Tools > Generate Bill of Materials** or use a BOM export plugin. The JLCPCB format needs these columns: `Comment`, `Designator`, `Footprint`, `LCSC Part Number`. You can format this manually in a spreadsheet or use a KiCad BOM plugin configured for JLCPCB.
+3. **Export the BOM.** Go to **Tools > Generate Bill of Materials** or use a BOM export plugin. The JLCPCB format needs these columns: `Comment`, `Designator`, `Footprint`, `LCSC Part Number`. In KiCad 8 and 9 the **Generate Bill of Materials** dialog does this with no spreadsheet or plugin: show the Value, Reference, Footprint and LCSC fields, label them `Comment`, `Designator`, `Footprint` and `LCSC`, tick **Group symbols**, clear **Range delimiter** so that every reference is written out (C5,C6,C7 rather than C5-C7), and export.
 
 4. **Save as CSV.** Example rows:
 
@@ -427,24 +429,32 @@ The factory solders the surface-mount parts (SMT assembly) from the stock of its
 The pick-and-place file (also called the centroid or CPL file) tells the assembly machine, for each part, the position of its center, the face of the board and the angle of rotation. A wrong angle puts an LED or a chip on its pads the wrong way round, with no error message.
 
 <Steps>
-1. **Export from KiCad.** In the PCB Editor, go to **File > Fabrication Outputs > Component Placement (.pos file)**.
+1. **Export from KiCad.** In the PCB Editor, go to **File > Fabrication Outputs > Component Placement (.pos, .gbr)...**.
 
 2. **Settings:**
    - Format: **CSV**
    - Units: **Millimeters**
-   - Files: **Single file for board**
+   - Tick **Generate single file with both front and back positions**
 
 3. **Rename the columns for JLCPCB.** KiCad writes `Ref`, `PosX`, `PosY`, `Rot`, `Side`. JLCPCB expects `Designator`, `Mid X`, `Mid Y`, `Rotation`, `Layer`. Change the names in a text editor or a spreadsheet.
 
 4. **Check the rotations after you upload.** KiCad and JLCPCB do not always agree on which direction is 0 degrees for a part. The preview on the order page shows each part as it will be placed.
 </Steps>
 
+### Check before you order
+
+Do the six checks of the [breakout board](/education/pcb-design-kicad/atmega328p-breakout-board-through-hole/#check-before-you-order). An assembled board adds three:
+
+- **Pin 1 and polarity in the placement preview:** the MCU's dot, both LEDs, the regulator's tab. A part turned the wrong way is soldered that way.
+- **USB:** D+ to PA12, D- to PA11, R1 1.5 kΩ on D+.
+- **The factory's limits**, typical for two layers (check your factory): track and gap 0.127 mm, hole 0.3 mm, copper 0.3 mm from the edge.
+
 ### JLCPCB Order Walkthrough
 
 <Steps>
 1. **Create an account** at [jlcpcb.com](https://jlcpcb.com).
 
-2. **Upload Gerbers.** Click "Order Now" on the homepage. Drag and drop your `gerbers/` folder (or a ZIP of the Gerber and drill files) onto the upload area. JLCPCB's viewer will show a preview of your board.
+2. **Upload Gerbers.** Click "Order Now" and drop a ZIP of the Gerber and drill files on the upload area. A preview of the board appears.
 
 3. **Set board parameters:**
    - Layers: 2
@@ -464,14 +474,11 @@ The pick-and-place file (also called the centroid or CPL file) tells the assembl
 
 5. **Upload BOM and CPL files.** Click "Add BOM File" and "Add CPL File". Upload the CSV files you generated.
 
-6. **Review component matching.** JLCPCB shows each BOM line matched to a part from their inventory. Green check marks mean the part is in stock. Yellow warnings mean you need to confirm or substitute. Common issues:
-   - Extended parts (not in their basic library) cost an extra 3 USD per unique part
-   - Out-of-stock parts need substitution with a compatible alternative
-   - Confirm the footprint matches for each component
+6. **Review component matching.** Each BOM line is matched to a part in stock. A green mark means in stock; a yellow warning asks you to confirm or substitute. Extended parts (not in the Basic library) cost about 3 USD extra per unique part; an out-of-stock part needs a compatible substitute; confirm each footprint.
 
-7. **Review placement preview.** JLCPCB shows a 2D rendering with components placed on the board. Check that every component is correctly positioned and rotated. Fix any rotation issues by adjusting the rotation value in your CPL file and re-uploading.
+7. **Review the placement preview.** Check every part's position and rotation. Correct a wrong rotation in the CPL file and upload it again.
 
-8. **Select shipping** and place the order. DHL and FedEx typically take 5-7 days. Standard shipping is cheaper but takes 2-3 weeks.
+8. **Select shipping** and place the order. Express takes about 5-7 days; standard shipping is cheaper and takes 2-3 weeks.
 </Steps>
 
 ### Cost Expectations
@@ -757,6 +764,16 @@ Hello from STM32
 Hello from STM32
 Hello from STM32
 ```
+
+### Check it
+
+When the text does not come, the computer says which part failed. On Linux run `dmesg -w` and plug the board in (Windows: Device Manager):
+
+- **Nothing at all**: no pull-up on D+, a charge-only cable, or firmware stopped before USB started (a dead HSE sends the CubeIDE program into `Error_Handler`).
+- **"device descriptor read error"**: D+ and D- swapped, or a USB clock that is not 48 MHz (wrong crystal or PLL setting).
+- **A new `ttyACM` port and a line each second**: it works. `lsusb` shows `0483:5740`; 60 lines take 60 s.
+
+The terminal's baud rate does not matter on a USB serial port. After new firmware, replug the cable if the port does not return: R1 holds D+ high, so the computer is not told the device restarted.
 
 ## What You Have Learned
 

@@ -241,9 +241,11 @@ The PDF also has no polyfuse, no value for the VCAP1 capacitor, 1 µF regulator 
 
 3. **Wire VBUS.** Connect VBUS through polyfuse F1 to a net labeled `VBUS_5V`. A polyfuse is a fuse that resets itself: if the board shorts, it limits the current taken from the computer's port. Add a 10 µF capacitor (C12) from VBUS_5V to GND.
 
-4. **Wire the data lines.** Connect D+ to a net labeled `USB_DP` and D- to a net labeled `USB_DM`. They go to PA12 (D+) and PA11 (D-) on the STM32.
+4. **Wire the data lines.** Connect D+ to a net labeled `USB_D+` and D- to a net labeled `USB_D-`. They go to PA12 (D+) and PA11 (D-) on the STM32. The names matter: KiCad's differential pair router finds the partner of a net only when the two names end in `+` and `-`, or `P` and `N`. With `USB_DP` and `USB_DM` it refuses to route them as a pair.
 
 5. **Shield pin.** Connect the metal shell of the connector to GND.
+
+6. **Static protection.** A USB-C socket is touched by people and cables many times a day, and a static spark enters through it. On a board that leaves your desk, add an ESD protection array such as the USBLC6-2SC6 beside the connector, on D+, D- and VBUS, before the tracks reach the MCU.
 </Steps>
 
 ### Power Supply
@@ -253,7 +255,7 @@ The PDF also has no polyfuse, no value for the VCAP1 capacitor, 1 µF regulator 
 
 2. **Input capacitor.** C12 (10 µF) on VBUS_5V also serves as the input capacitor. Keep it close to the LDO VIN pin.
 
-3. **Output capacitors.** Place 10 µF (C13) and 100 nF (C14) from +3V3 to GND. The regulator needs at least 1 µF at its output to stay stable, and 10 µF gives a reserve for sudden current steps.
+3. **Output capacitors.** Place 10 µF (C13) and 100 nF (C14) from +3V3 to GND. The regulator needs at least 1 µF at its output to stay stable, and 10 µF gives a reserve for sudden current steps. The "500 mA" of the ME6211 is its current limit, not what its package can shed as heat. It loses (5 − 3.3) V × current: 0.17 W at 100 mA, 0.85 W at 500 mA. A SOT-23-5 package rises about 250 °C per watt on a small board (typical; check the data sheet), so plan for under about 150 mA (0.26 W).
 
 4. **Power flags.** If the electrical rules check (ERC) reports a power pin that nothing drives, add `PWR_FLAG` symbols on the +3V3 and GND nets. The flag tells KiCad that power enters there.
 </Steps>
@@ -263,7 +265,7 @@ The PDF also has no polyfuse, no value for the VCAP1 capacitor, 1 µF regulator 
 <Steps>
 1. **Place the MCU.** Add `STM32F411CEUx` from the MCU_ST_STM32F4 library. This symbol includes all 48 pins plus the exposed thermal pad.
 
-2. **Decoupling capacitors.** A fast chip takes its current in short pulses, and a small capacitor beside each supply pin delivers them. The STM32F411 UFQFPN-48 has three VDD pins and one VDDA pin (the supply of its analog parts), so place four 100 nF capacitors (C5 through C8). Add one more 100 nF (C9) near VDDA with a 1 µF in parallel for analog filtering, and a 4.7 µF bulk capacitor (C10) near the MCU.
+2. **Decoupling capacitors.** A fast chip takes its current in short pulses, and a small capacitor beside each supply pin delivers them. The STM32F411 UFQFPN-48 has three VDD pins and one VDDA pin (the supply of its analog parts), so place four 100 nF capacitors (C5 through C8). Add one more 100 nF (C9) near VDDA with a 1 µF in parallel for analog filtering, and a 4.7 µF bulk capacitor (C10) near the MCU. Connect VBAT (pin 1), the backup supply of the real-time clock, to +3V3 with its own 100 nF beside it: the data sheet asks for this when no battery is fitted, and a VBAT pin left open is a fault.
 
 3. **VCAP1 pin.** The chip makes its own core voltage with an internal regulator, and VCAP1 is that regulator's output. It needs a 4.7 µF ceramic capacitor to GND, the data sheet value for a package with one VCAP pin. Connect nothing else to this pin.
 
@@ -275,7 +277,7 @@ The PDF also has no polyfuse, no value for the VCAP1 capacitor, 1 µF regulator 
 
 7. **BOOT0 pin.** Connect BOOT0 through a 10 kΩ pull-down to GND, so the MCU starts your program from its flash memory. For a BOOT0 button, add a switch from BOOT0 to 3V3.
 
-8. **USB data lines.** Connect PA11 to USB_DM and PA12 to USB_DP. If you fit the external pull-up, connect the 1.5 kΩ resistor from USB_DP to +3V3.
+8. **USB data lines.** Connect PA11 to `USB_D-` and PA12 to `USB_D+`. If you fit the external pull-up, connect the 1.5 kΩ resistor from `USB_D+` to +3V3.
 </Steps>
 
 ### SWD Header and User I/O
@@ -315,7 +317,7 @@ The PDF also has no polyfuse, no value for the VCAP1 capacitor, 1 µF regulator 
 <Steps>
 1. **Draw the board outline.** Switch to the Edge.Cuts layer and draw a rectangle 55mm x 20mm. Round the corners with 1mm radius fillets if desired.
 
-2. **Create the GND zone on In1.Cu.** A zone is an area that KiCad fills with copper for one net. Select Add Filled Zone, pick the In1.Cu layer, and assign it to the GND net. Draw the zone over the whole board. This is the ground plane.
+2. **Create the GND zone on In1.Cu.** A zone is an area that KiCad fills with copper for one net. Use **Place > Draw Filled Zones**, pick the In1.Cu layer, and assign it to the GND net. Draw the zone over the whole board. This is the ground plane.
 
 3. **Create the +3V3 zone on In2.Cu.** Do the same on In2.Cu, assigned to the +3V3 net. This is the power plane.
 
@@ -339,13 +341,13 @@ Place the parts in this order, because the first ones have the least freedom: US
 The GND pours on the outer layers help only where they are joined to the GND plane, at many points; a piece of pour joined at one point acts as an antenna. Via stitching is a regular pattern of GND vias that makes those joints. It also carries heat from the outer layers to the inner copper.
 
 <Steps>
-1. **Stitch around the board edge.** In KiCad, use Place > Via and set the via net to GND. Place vias every 3 to 5mm around the board, inside the ground pour, at least 0.5mm from the edge.
+1. **Stitch around the board edge.** Use **Place > Place Vias** and check in each via's properties that its net is GND. Place vias every 3 to 5mm around the board, inside the ground pour, at least 0.5mm from the edge.
 
 2. **Stitch beside the USB tracks.** Place GND vias on both sides of the USB differential pair, every 2 to 3mm, so the pours beside the pair are firmly at ground.
 
 3. **Stitch near the MCU.** Place GND vias around the MCU footprint. Under the chip, its exposed pad gets a grid of 4 to 9 vias (2x2 or 3x3) to the inner GND plane, which carry heat away from the chip.
 
-4. **KiCad automatic via stitching.** In KiCad 9, you can use Edit > Add Via Stitching to automate this. Set the via diameter to 0.45mm, drill to 0.2mm, and spacing to 3mm. Select the GND net and the target zones, then click OK.
+4. **Faster stitching.** KiCad 9 has no via stitching command in its menus. Place one GND via, select it, and use **Create Array...** (`Ctrl+T`) for a row or grid at 3 mm spacing, or install a via stitching plugin from the **Plugin and Content Manager**. Use vias of 0.45mm diameter and 0.2mm drill.
 </Steps>
 
 ### USB Differential Pair Routing
@@ -353,7 +355,7 @@ The GND pours on the outer layers help only where they are joined to the GND pla
 The USB pair is routed first, before other tracks take its space.
 
 <Steps>
-1. **Assign the USB net class.** In Board Setup > Net Classes, check that USB_DP and USB_DM are in the "USB" net class, with the track width and gap from the factory's calculator for 90 Ω on your stack-up. The starting values of 0.2mm and 0.15mm on 0.21mm prepreg are inside the USB range, at its upper edge.
+1. **Assign the USB net class.** In Board Setup > Net Classes, check that `USB_D+` and `USB_D-` are in the "USB" net class, with the track width and gap from the factory's calculator for 90 Ω on your stack-up. The starting values of 0.2mm and 0.15mm on 0.21mm prepreg are inside the USB range, at its upper edge.
 
 2. **Route the differential pair.** Open **Route > Route Differential Pair** (or press `6`). Click one pad of the D+/D- pair at the connector, and KiCad draws both tracks together and holds the gap between them.
 
@@ -432,6 +434,15 @@ A four-layer order needs two more copper files than a two-layer order, one for e
 
 Zip all Gerber and drill files together and upload them. In the factory's Gerber viewer, check that the inner layers are in the right order before you pay: if they are exchanged, the USB pair lies over the power plane.
 
+### Check before you order
+
+Do the six checks of the [breakout board](/education/pcb-design-kicad/atmega328p-breakout-board-through-hole/#check-before-you-order), and four more for this board:
+
+- **Zones filled.** Fill all zones (`B`) before you plot; an unfilled plane is plotted as an empty layer. The plot dialog's **Check zone fills before plotting** does it for you.
+- **The planes in the Gerber viewer:** In1.Cu a whole sheet of GND with round clearances around the +3V3 vias and no slot under the USB pair, In2.Cu the same for +3V3.
+- **The exposed pad:** GND, with its vias, in the footprint and on the paste layer.
+- **USB-C:** each CC pin has its own 5.1 kΩ to GND, and A6/B6 and A7/B7 are joined.
+
 ## Firmware: USB CDC Virtual COM Port
 
 <InArticleAd />
@@ -493,7 +504,8 @@ On Linux, the device appears as `/dev/ttyACM0`. On Windows, it appears as a COM 
 
 If the device does not appear on the host:
 
-- No power: measure VBUS. It must be 5V with the cable connected. With a cable that has USB-C at both ends, 0V points to the 5.1 kΩ resistors on CC1 and CC2.
+- No power: measure VBUS. It must be 5V with the cable connected. With a cable that has USB-C at both ends, 0V points to the 5.1 kΩ resistors on CC1 and CC2. Measure the CC pins with the cable in: one of them carries the host's offer across your 5.1 kΩ, about 0.42 V for default USB power, 0.94 V for 1.5 A and 1.69 V for 3 A (host pull-ups of 56, 22 and 10 kΩ to 5 V). This reading proves the resistors and tells you what the port offers.
+- Power but no USB device, and the program runs: in CubeMX, keep VBUS sensing disabled. This board does not connect VBUS to PA9, and with sensing on the chip waits for a VBUS it never sees.
 - Power but no device: the host looks for D+ held high. With the internal pull-up, the program must start USB, so check that it runs.
 - "Unknown device": USB needs exactly 48 MHz. Check the clock tree in CubeMX and the 25 MHz crystal.
 - Random faults: check the 4.7 µF capacitor on VCAP1. Without it the core regulator is unstable.

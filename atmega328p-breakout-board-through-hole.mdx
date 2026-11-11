@@ -186,7 +186,7 @@ KiCad is faster with the keyboard than with the menus. Use this section as a ref
 | Drag (wires stretch and stay attached) | Hover, press `G`, click to drop |
 | Delete a wire segment | Click the wire, press `Delete` |
 | Rotate | Hover, press `R` |
-| Mirror | Hover, press `X` (flip top to bottom) or `Y` (flip left to right) |
+| Mirror | Hover, press `X` (flip left to right) or `Y` (flip top to bottom) |
 | Delete | Hover or select, press `Delete` |
 | **Edit value** (e.g. `10uF`, `330`) | Hover, press `V`, type the new value, `Enter` |
 | **Edit reference** (e.g. `C2` to `C5`) | Hover over the reference text, double-click, type, `Enter`. Or use full properties (`E`) |
@@ -207,7 +207,7 @@ Every action in the PCB editor is in the **Place**, **Route**, **Edit** or **Ins
 | Action | Menu | Shortcut |
 |---|---|---|
 | Start interactive router | **Route > Route Single Track** | `X` |
-| Place a via mid-route | **Route > Place Via** | `V` |
+| Place a via mid-route | (while routing; **Place > Place Vias** places one alone) | `V` |
 | Add a copper pour zone | **Place > Draw Filled Zones** | `Ctrl+Shift+Z` |
 | Fill all zones | **Edit > Fill All Zones** | `B` |
 | Unfill all zones | **Edit > Unfill All Zones** | `Ctrl+B` |
@@ -288,7 +288,7 @@ ERC cannot see the wall adapter, so it may report that nothing drives `VIN`. Add
 
 The microcontroller (MCU) needs three small circuits around it to run correctly:
 
-- **A crystal with two load capacitors.** The crystal is the clock: it sets the speed at which the chip executes instructions, 16 million steps a second here. The two 22 pF capacitors are the load the crystal maker specifies. Without them the frequency is wrong or the clock does not start.
+- **A crystal with two load capacitors.** The crystal is the clock: it sets the speed at which the chip executes instructions, 16 million steps a second here. The crystal's data sheet gives its load capacitance CL, the capacitance it must see to run at its marked frequency. It sees C1 and C2 in series plus about 5 pF of stray capacitance from pins and tracks: CL = (C1 × C2) / (C1 + C2) + Cstray, so equal capacitors are C1 = C2 = 2 × (CL − Cstray). A crystal with CL = 16 pF needs 2 × (16 − 5) = 22 pF; one with CL = 20 pF needs about 30 pF. With values far from this the frequency is wrong or the clock does not start.
 - **A decoupling capacitor at each supply pin.** A digital chip takes its current in short, sharp pulses, and a track from a regulator several centimetres away is too slow to deliver them: the pin voltage dips and the chip can reset or misread. A 100nF capacitor beside the pin is a small local store of charge, like a small tank beside a tap, that supplies each pulse.
 - **A capacitor on AREF**, the reference voltage of the analog-to-digital converter, which keeps noise out of analog readings.
 
@@ -580,7 +580,7 @@ The drawing shows the finished placement, seen from above. The marks ⊕ are the
 
 2. **Draw the rectangle.** Use **Place > Draw Rectangle**. Click the first corner at (0, 0) and the opposite corner at (66, 53). You can type the numbers in the X/Y fields at the bottom of the editor, or set the grid to 1 mm.
 
-3. **Round the corners.** Right-click the rectangle, choose **Shape Modifications > Fillet Lines**, and set the radius to **3 mm**.
+3. **Round the corners.** Right-click the rectangle, choose **Shape Modification > Fillet Lines...**, and set the radius to **3 mm**.
 
 4. **Add four M3 mounting holes.** Open **Place > Add Footprint** (or press `A`) and search for `MountingHole_3.2mm_M3`. Place one 6 mm in from the edges at each corner: (6, 6), (60, 6), (6, 47) and (60, 47). That leaves about 4.4 mm of board around each hole, enough that the board does not crack when the screw is tightened.
 
@@ -631,7 +631,7 @@ A design rule is a limit you give to KiCad: the narrowest track, the smallest ga
 
 3. Add a **Power** net class for `+5V` and `GND`:
    - **Clearance:** `0.3 mm`
-   - **Track Width:** `0.8 mm`. All the current of the board passes along these tracks, and a wider track has less resistance. At 0.5 A, 100 mm of 0.8 mm track loses about 30 mV. The same length of 0.2 mm track loses about 120 mV.
+   - **Track Width:** `0.8 mm`. All the current of the board passes along these tracks, and a wider track has less resistance. At 0.5 A, 100 mm of 0.8 mm track in the usual 35 µm (1 oz) copper loses about 30 mV. The same length of 0.2 mm track loses about 120 mV. Heat is not the limit at this current: the IPC-2221 formula gives about 0.12 mm for 0.5 A on an outer layer with a 10 °C rise. The width is chosen for voltage drop and strength.
 
 4. Click **OK**.
 </Steps>
@@ -710,7 +710,7 @@ A factory makes holes with copper inside them (plated holes), so the top and bot
 A factory does not open a KiCad project. It works from **Gerber files**, a format every board maker reads: one file for each layer, each a flat picture of where the copper, the protective coating (solder mask) or the printed text goes. A separate **drill file** lists the position and diameter of every hole.
 
 <Steps>
-1. **Export the Gerbers.** Go to **File > Plot**. Select these layers: `F.Cu`, `B.Cu`, `F.SilkS`, `B.SilkS`, `F.Mask`, `B.Mask`, `Edge.Cuts`. Set the output format to **Gerber**. Leave **Mirrored** unchecked. Click **Plot**. KiCad writes one `.gbr` file for each layer to the project's `gerbers/` folder.
+1. **Export the Gerbers.** Go to **File > Plot**. Select these layers: `F.Cu`, `B.Cu`, `F.SilkS`, `B.SilkS`, `F.Mask`, `B.Mask`, `Edge.Cuts`. Set the output format to **Gerber**. Type `gerbers/` in **Output directory**; left empty, the files go into the project folder among your design files. Leave **Mirrored** unchecked. Click **Plot**. KiCad writes one `.gbr` file for each layer to the `gerbers/` folder.
 
 2. **Generate the drill file.** In the same dialog, click **Generate Drill Files**. Select **Excellon** format and **PTH and NPTH in single file** (plated and unplated holes together). Click **Generate Drill File**.
 
@@ -718,6 +718,17 @@ A factory does not open a KiCad project. It works from **Gerber files**, a forma
 
 4. **For home etching: also export the copper as PDF.** Open **File > Plot** again, set the format to **PDF**, and select `F.Cu` and `B.Cu`. Check **Mirrored** for `F.Cu` only. The printed sheet is laid face down on the copper, so the top layer must be printed as a mirror image to come out the right way round.
 </Steps>
+
+### Check before you order
+
+A mistake found now costs ten minutes; found on the finished board, a new order and two weeks. Do these six checks on every board you send:
+
+1. **ERC and DRC are clean**, with no unconnected items. Run DRC after the last change with **Test for parity between PCB and schematic** ticked, so a part changed in the schematic but not on the board is reported.
+2. **3D view.** Every part on the correct face, every connector facing out.
+3. **Print at 1:1 on paper.** **File > Print** in the PCB Editor, scale 1:1, layers `F.Cu` and `Edge.Cuts`. Measure the outline (66 mm), then push the legs of each real part through the paper: socket, regulator, barrel jack, screw terminal, headers. A wrong footprint shows at once.
+4. **Footprint against the data sheet.** For each part with more than two legs, check pin 1 and the pin order. On the LM7805, pin 1 is the input, pin 2 ground, pin 3 the output. Check the diode's cathode stripe and which barrel jack pin is the tip.
+5. **Look at the Gerber files, not the KiCad board**, in KiCad's **Gerber Viewer** (project manager) or the factory's online viewer. Every layer present, the outline closed, each hole centred in its pad, the text readable and not mirrored.
+6. **Revision.** Title block and silkscreen carry the revision letter of these files.
 
 ### Path A: Order from JLCPCB (or any fab house)
 
@@ -766,7 +777,7 @@ Printer toner resists the etching liquid, so copper under toner stays and the re
 
 7. **Clean.** Rinse the board with water and remove the toner with acetone or fine sandpaper.
 
-8. **Drill the other holes:** 0.8 mm for part legs, 1.0 mm for the headers and the barrel jack. Drill straight down.
+8. **Drill the other holes:** 0.8 mm for part legs, 1.0 mm for the headers and the barrel jack. Drill straight down. The regulator, the diode, the screw terminal and the barrel jack have thicker legs than a resistor: **Generate Report File** in the drill dialog lists every hole size in the design, so check those parts against it before you drill.
 
 9. **Join the two faces** at each via with a short bare wire soldered on both sides.
 
@@ -799,7 +810,7 @@ Solder the lowest parts first and the tallest last. The board then lies flat on 
 
 4. **Connectors.** Barrel jack (J1), screw terminal (J6), ISP header (J2), FTDI header (J5) and sockets (J3, J4).
 
-5. **Regulator.** Solder U2 (LM7805). It becomes hot when the input is 12V and the load is large, so add a small clip-on heatsink for that use.
+5. **Regulator.** Solder U2 (LM7805). Its heat is (VIN − 5 V) × current. The board alone draws about 30 mA, so at 12 V in (11.7 V after D3) it makes about 0.2 W. Add 250 mA for a circuit on the sockets and it makes about 1.9 W; a TO-220 in free air rises about 65 °C per watt (typical), far too hot, so add a clip-on heatsink or use a 9 V supply. At 7 V in, the 6.7 V after D3 suits this light load only: at full current the LM7805 needs about 2 V above its output.
 
 6. **Do not insert the ATmega328P yet.** It goes in after the supply has been checked.
 </Steps>
@@ -913,11 +924,20 @@ With an Arduino Uno as the programmer, replace `-c usbasp` with `-c stk500v1 -P 
 
 The red user LED (D2) now blinks once a second: 500ms on, 500ms off.
 
+### Check it
+
+A blinking LED proves less than it seems:
+
+- **The clock.** Time 10 blinks: about 10 s. If each blink takes about 16 s (8 s on, 8 s off), the fuses were not written and the chip still runs at its internal 1 MHz, 16 times slower than the program expects.
+- **The supply.** With the chip running, `+5V` still reads 5.0 V (±0.1 V), and a meter in series with a 9 V supply reads about 20 to 30 mA. Much more means a part the wrong way round or a solder bridge.
+- **If avrdude cannot reach a new chip** ("initialization failed"), the programmer may be too fast for a chip at 1 MHz. Add `-B 10` to slow it, then check the six ISP wires.
+- **If the chip stops answering after the fuses were written**, it waits for a crystal that does not oscillate. Check the joints and values of Y1, C1 and C2 (22 pF, not 22 nF).
+
 :::tip[What the three fuses set]
 A new ATmega328P runs from a slow internal clock. The fuses tell it to use the crystal. They are written once and stay when a new program is written.
 
 - `lfuse = 0xFF`: use the external crystal, with a 65 ms start-up delay. The Arduino Uno uses the same value.
-- `hfuse = 0xDE`: keep ISP programming enabled, and reserve 512 bytes for a bootloader.
+- `hfuse = 0xDE`: keep ISP programming enabled, reserve 512 bytes for a bootloader, and start at the bootloader after a reset. With no bootloader written, the chip runs through the empty memory at the top and comes round to your program at address 0, so blink still starts.
 - `efuse = 0xFD`: hold the chip in reset when the supply falls below 2.7 V.
 :::
 

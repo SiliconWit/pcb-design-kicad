@@ -229,7 +229,7 @@ The MCP6001 is connected as a non-inverting amplifier: the output has the same s
 | Output at 1.5A | 150 mV x 10 = 1.5V |
 | Output at 0.5A | 50 mV x 10 = 0.5V |
 
-The MCP6001 works from a single 3.3V or 5V supply, and its input and output can go down to 0 V, which a signal measured from ground needs. A 10 nF capacitor on its output smooths the PWM ripple before the ADC pin.
+The MCP6001 works from a single 3.3V or 5V supply, and its input and output can go down to 0 V, which a signal measured from ground needs. A 10 nF capacitor on its output smooths the PWM ripple before the ADC pin. Put a resistor of about 1 kΩ between the op-amp output and that capacitor (not in the bill of materials): an op-amp that drives 10 nF directly can oscillate, and the resistor and capacitor together make a filter with a corner near 16 kHz.
 
 Each bridge has its own shunt, but the single MCP6001 amplifies only one of them (motor A, on AISEN). To measure motor B as well, add a second op-amp stage on BISEN. The DRV8833 also uses these pins for its own current limit, which acts when a sense pin reaches 200 mV: with 0.1 ohm shunts that is 2 A.
 
@@ -267,6 +267,8 @@ A MOSFET contains a diode between drain and source, called the body diode. With 
 </Steps>
 
 The SI2301 allows at most 8 V between gate and source, and here that voltage equals the supply. Above 8 V, use a P-MOSFET with a 20 V gate rating.
+
+Check its heat too. Q1 carries the current of both motors. At 1.5 A it loses 1.5² × 0.1 = 0.225 W, but with both motors at 1.5 A it carries 3 A and loses 3² × 0.1 = 0.9 W, far more than a SOT-23 can shed (it rises roughly 250 °C per watt on a small board; typical, check the data sheet). For both channels at full current, choose a P-MOSFET in a power package (SO-8 or DPAK) with an on-resistance of a few tens of milliohms.
 
 ### TVS Diode
 
@@ -365,7 +367,7 @@ On a 2-layer board, three tools keep motor noise away from the IMU: distance bet
 
 ### Trace Width and Routing
 
-A trace that is too narrow for its current runs hot and loses voltage, so the width follows the current. For standard board copper (called 1 oz, 0.035 mm thick):
+A trace that is too narrow for its current runs hot and loses voltage, so the width follows the current. For standard board copper (called 1 oz, 0.035 mm thick) on an outer layer, the IPC-2221 formula for a 10 °C rise gives 0.53 mm for 1.5 A and 1.37 mm for 3 A; the widths below stay above these:
 
 | Trace Type | Width | Current | Notes |
 |------------|-------|---------|-------|
@@ -405,7 +407,7 @@ Before you make the manufacturing files, run the DRC (design rules check) in KiC
 - Minimum trace width: 0.15 mm (for signal traces)
 - Minimum clearance: 0.15 mm
 - Minimum via drill: 0.3 mm
-- Thermal relief on all pads connecting to copper pours
+- Thermal relief on the through-hole pads that join a copper pour, so they can be soldered; but a solid connection for the DRV8833's exposed pad and its vias (set **Zone connection: Solid** in that footprint's properties), or the reliefs choke the heat path of the thermal section
 - No unrouted nets
 - No overlapping pads or silk
 
@@ -460,7 +462,7 @@ Copper of 2 oz is twice as thick, so a trace of half the width carries the same 
 
 The sketch below starts the MPU6050 over I2C and reads the acceleration. A proportional controller then drives the motors: the more the board tilts, the faster they turn. It also reads the current sense voltage and prints all values to the serial monitor.
 
-It works with any MCU board that the Arduino software supports. Change the pin numbers to match your header wiring, and set `ADC_REF` and `ADC_RESOLUTION` to the reference voltage and the number of steps of your MCU's ADC.
+It works with any MCU board that the Arduino software supports. Change the pin numbers to match your header wiring, and set `ADC_REF` and `ADC_RESOLUTION` to the reference voltage and the number of steps of your MCU's ADC. Prefer a 3.3 V MCU board. On a 5 V Uno the Wire library turns on internal pull-ups to 5 V, which lift the MPU6050's 3.3 V bus above its supply, and the ATmega328P reads a sure high only from 3.5 V: add an I2C level shifter.
 
 ```cpp
 // Motor Driver + IMU Integration Board - Basic Control Sketch
@@ -619,6 +621,8 @@ void readMPU6050() {
   Wire.endTransmission(false);
   Wire.requestFrom(MPU_ADDR, (uint8_t)14, (uint8_t)true);
 
+  // C++ does not fix which of two read() calls in one line runs first;
+  // a portable version reads each byte into its own variable first.
   accelX = (Wire.read() << 8) | Wire.read();
   accelY = (Wire.read() << 8) | Wire.read();
   accelZ = (Wire.read() << 8) | Wire.read();
@@ -660,6 +664,15 @@ void faultISR() {
   motorFault = true;
 }
 ```
+
+### Check it
+
+The board makes two claims: it measures the motor current, and the motors do not disturb the sensor. Test both.
+
+- **The current reading.** Motors stopped, `current_mA` reads near 0; the MCP6001's input offset of a few millivolts can show here (4.5 mV at its input reads as 4.5 mV / 0.1 Ω = 45 mA), so note it and subtract it. Then compare with a meter in series with motor A at three duty cycles. The shunt carries current only while the bridge drives, so a factor from this comparison corrects the reading.
+- **The sensor, flat and still:** `accelZ` about 1.00 g (16,384 counts), `ax` and `ay` about 0.00.
+- **The layout test.** Fix the board, wheels clear, and log `ax` for 10 s with the motors off, then 10 s at full speed. A much larger spread means motor current or vibration reaches the sensor; if it remains with the motors uncoupled from their load, it is electrical (ground or supply).
+- **The fault path.** Hold one shaft briefly at low duty: the current rises, the driver limits it at 2 A, and if it overheats nFAULT falls and the sketch prints "MOTOR FAULT DETECTED".
 
 ## What You Have Learned
 

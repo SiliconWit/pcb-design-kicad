@@ -348,6 +348,8 @@ print("Netlist generated: atmega328p_breakout.net")
 
 Put all the sections above, in the same order, into one file called `atmega328p_breakout.py`. Run it with `python atmega328p_breakout.py`. SKiDL writes a `.net` file with the same name in the current folder.
 
+Check the netlist before you import it. It lists 19 parts (J1 to J4, U1, U2, Y1, C1 to C6, R1 to R3, D1, D2, SW1), and its `RESET` net joins five pins: R1 pin 2, SW1 pin 1, U1 pin 1, J2 pin 5, J4 pin 9. Another count means a part or a connection the script did not make, often a pin name SKiDL could not find.
+
 ## From Netlist to PCB
 
 <InArticleAd />
@@ -388,7 +390,7 @@ board = pcbnew.LoadBoard("atmega328p_breakout.kicad_pcb")
 
 # Set board outline (66mm x 53mm, matching Lesson 1)
 outline = pcbnew.PCB_SHAPE(board)
-outline.SetShape(pcbnew.SHAPE_T_RECT)
+outline.SetShape(pcbnew.SHAPE_T_RECTANGLE)  # older KiCad: SHAPE_T_RECT
 outline.SetStart(pcbnew.VECTOR2I_MM(0, 0))
 outline.SetEnd(pcbnew.VECTOR2I_MM(66, 53))
 outline.SetLayer(pcbnew.Edge_Cuts)
@@ -417,6 +419,8 @@ for ref, (x, y, angle) in placement.items():
 board.Save("atmega328p_breakout_placed.kicad_pcb")
 print("Components placed. Open the board in KiCad to route traces.")
 ```
+
+A footprint's position is its origin, which for a DIP chip or a pin header is pin 1, not the middle. U1 at x = 16.5 mm, turned 90 degrees, runs 33 mm to x = 49.5 mm, so its body is centred on the 66 mm board.
 
 :::note
 The script does not draw the tracks: KiCad's Python module has no automatic router. You route by hand in the GUI, or with an external router such as FreeRouting. What the script gives is repeatability: after a change to the netlist, run it again and every part is back at its position.
@@ -538,6 +542,20 @@ if not passed:
 
 The last line returns an error code when DRC fails. A continuous integration (CI) service, such as GitHub Actions, runs a script like this on a server each time you send a change, and marks the change as failed on that code. A clearance error is then found on the day it is made, not when the boards arrive.
 
+### The same checks from the command line
+
+KiCad 8 and 9 install `kicad-cli`, which runs the checks and writes the factory files with no window and no Python, the simpler choice on a CI server:
+
+```bash
+kicad-cli sch erc --severity-error --exit-code-violations board.kicad_sch
+kicad-cli pcb drc --schematic-parity --severity-error --exit-code-violations board.kicad_pcb
+kicad-cli pcb export gerbers --board-plot-params -o gerbers/ board.kicad_pcb
+kicad-cli pcb export drill -o gerbers/ board.kicad_pcb
+kicad-cli pcb export pos --format csv --units mm --side both -o board-pos.csv board.kicad_pcb
+```
+
+With `--exit-code-violations` a failed check stops the pipeline. `--board-plot-params` uses the layers and settings saved from the board's own Plot dialog, so the files match those you checked by hand.
+
 ## KiCad Action Plugins
 
 <InArticleAd />
@@ -597,7 +615,7 @@ Code replaces part of the GUI, not all of it. The circuit, its variants and its 
 
 - SKiDL writes a netlist, not a drawing. Nobody can understand the circuit at a glance, as from a schematic.
 - Placement by script suits simple boards. A dense board still needs placement by hand, and routing by hand is faster for most boards.
-- The pcbnew module changes between KiCad versions. A script written for KiCad 9 may need changes after an upgrade.
+- The pcbnew module changes between KiCad versions. A script written for KiCad 9 may need changes after an upgrade. KiCad 9 marks this module (built with SWIG) as deprecated; its replacement is the IPC API, the `kicad-python` package (imported as `kipy`) that talks to a running KiCad. For new tools, use `kicad-cli` for files and checks and the IPC API inside the editor.
 - No check knows your intent. A script that runs with no errors, and passes ERC and DRC, can still describe a wrong circuit: a reversed LED, a wrong capacitor value. Review the script as you would a schematic. On the assembled board, check for shorts and polarity with a meter before first power.
 
 **The practical workflow:**
