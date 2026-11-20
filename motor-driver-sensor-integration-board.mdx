@@ -412,7 +412,7 @@ Before you make the manufacturing files, run the DRC (design rules check) in KiC
 - No overlapping pads or silk
 
 :::tip[Instrument it]
-This board is itself an instrument: it drives a motor and [senses what the motor is doing](/education/sensor-actuator-interfacing-stm32/). Keep the shunt and its amplifier close to the driver, so that a stall shows clearly as a rise in current, and keep the IMU away from the high-current traces. Such a board can [stream](/education/iot-systems/) load and motion to a [dashboard](https://siliconwit.io). The decision to stop a stalled motor stays in the firmware on the board, where it is fast.
+This board is itself an instrument: it drives a motor and [senses what the motor is doing](/education/sensor-actuator-interfacing-stm32/). Keep the shunt and its amplifier close to the driver, so that a stall shows clearly as a rise in current, and keep the IMU away from the high-current traces. Such a board can [stream](/education/iot-systems/) load and motion to a broker you run, or to [siliconwit.io](https://siliconwit.io), our monitoring service, which keeps the record of load and stalls over weeks; it works with any MQTT client. The decision to stop a stalled motor stays in the firmware on the board, where it is fast.
 :::
 
 ## Manufacturing
